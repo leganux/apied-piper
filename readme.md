@@ -1,11 +1,11 @@
-# apied-pipper
+# APIed Piper
 
 A minute microservice API rest generator
 
 <hr>
 <br>
 <p align="center">
-  <img src="https://github.com/leganux/apied-pipper/blob/main/apied_piper.jpg?raw=true" width="550" title="apied piper logo">
+  <img src="https://raw.githubusercontent.com/leganux/apied-pipper/main/apiedpiper.jpg" width="550" title="apied piper logo">
 </p>
 
 
