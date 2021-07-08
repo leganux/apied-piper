@@ -8,14 +8,14 @@ const bodyParser = require('body-parser');
 let apiato = require('apiato')
 
 
-let apied_pipper = function (jsonDefinition, mongoDBUri, port, ssl_config) {
+let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_config) {
     try {
         this.mongoose = require("mongoose");
         if (!jsonDefinition) {
-            throw  'You must to add the json definition'
+            throw 'You must to add the json definition'
         }
         if (!mongoDBUri) {
-            throw  'You must to add the mongo db URI'
+            throw 'You must to add the mongo db URI'
         }
         this.app = express()
         this.app.use(bodyParser.urlencoded({extended: true}));
@@ -32,6 +32,18 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, ssl_config) {
         this.httpServer = http.createServer(this.app);
         this.mongoose.connect(mongoDBUri, {useUnifiedTopology: true, useNewUrlParser: true});
         this.db = this.mongoose.connection;
+
+        if (options.active_cors) {
+            this.app.use((req, res, next) => {
+                res.header('Access-Control-Allow-Origin', '*');
+                res.header('Access-Control-Allow-Headers', 'Authorization, X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Allow-Request-Method');
+                res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+                res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE');
+                next();
+            });
+        }
+
+
 
         this.app.get('/', function (req, res) {
             res.status(200).json({
@@ -58,7 +70,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, ssl_config) {
             this.schemas_object[key] = {}
             this.validations_object[key] = {}
             this.models_object[key] = {}
-            this.populations_object[key] = []
+            this.populations_object[key] = {}
 
             for (var [key_, value_] of Object.entries(value.definition)) {
                 if (!value_ || typeof value_ != 'object') {
@@ -73,38 +85,32 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, ssl_config) {
                 let cadValidation = ''
                 switch (value_.type.toLowerCase()) {
                     case 'string':
-                        type:String
+                        type: String
                         cadValidation = cadValidation + 'string'
                         break;
                     case 'number':
-                        type:Number
+                        type: Number
                         cadValidation = cadValidation + 'number'
                         break;
                     case 'boolean':
-                        type:Boolean
+                        type: Boolean
                         cadValidation = cadValidation + 'boolean'
                         break;
                     case 'date':
-                        type:Date
+                        type: Date
                         cadValidation = cadValidation + 'date'
                         break;
                     case 'oid':
-                        type:Schema.Types.ObjectId
-                        this.populations_object[key].push({
-                            path: key_,
-                            model: this.models_object[value_.rel]
-                        })
+                        type: Schema.Types.ObjectId
+                        this.populations_object[key][key_] = this.models_object[value_.rel]
                         break;
                     case 'array_oid':
-                        type:Schema.Types.ObjectId
+                        type: Schema.Types.ObjectId
                         cadValidation = cadValidation + 'array'
-                        this.populations_object[key].push({
-                            path: key_,
-                            model: this.models_object[value_.rel]
-                        })
+                        this.populations_object[key][key_] = this.models_object[value_.rel]
                         break;
                     default:
-                        type:Schema.Types.Mixed
+                        type: Schema.Types.Mixed
                         break;
                 }
 
@@ -115,14 +121,14 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, ssl_config) {
                     this.schemas_object[key][key_] = [{
                         type: type,
                         required: value_.mandatory ? value_.mandatory : false,
-                        default: value_.default_function ? value_.default_function : undefined,
+                        default: value_.default_function ? value_.default_function() : undefined,
                         ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : undefined,
                     }]
                 } else {
                     this.schemas_object[key][key_] = {
                         type: type,
                         required: value_.mandatory ? value_.mandatory : false,
-                        default: value_.default_function ? value_.default_function : undefined,
+                        default: value_.default_function ? value_.default_function() : undefined,
                         ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : false,
                     }
                     if (!this.schemas_object[key][key_].ref) {
@@ -131,7 +137,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, ssl_config) {
                 }
             }
             this.models_object[key] = this.mongoose.model(key, this.schemas_object[key]);
-            if (this.populations_object[key].length == 0) {
+            if (!this.populations_object[key]) {
                 delete this.populations_object[key]
             }
         }
@@ -139,8 +145,10 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, ssl_config) {
          console.log('SCHEMA OBJECT', this.schemas_object)
          console.log('VALIDATION OBJECT', this.validations_object)
          console.log('Models OBJECT', this.models_object)
-         console.log('pop OBJECT', this.populations_object)
+
         */
+
+        console.log('pop OBJECT', this.populations_object)
 
         for (var [key, value] of Object.entries(jsonDefinition)) {
             if (value && value.operation && (value.operation.all || value.operation.createOne)) {
