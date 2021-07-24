@@ -4,6 +4,7 @@ var https = require('https');
 
 var express = require('express');
 const bodyParser = require('body-parser');
+const getId = require('docker-container-id');
 
 let apiato = require('apiato')
 
@@ -33,7 +34,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.mongoose.connect(mongoDBUri, {useUnifiedTopology: true, useNewUrlParser: true});
         this.db = this.mongoose.connection;
 
-        if (options.active_cors) {
+        if (options?.active_cors) {
             this.app.use((req, res, next) => {
                 res.header('Access-Control-Allow-Origin', '*');
                 res.header('Access-Control-Allow-Headers', 'Authorization, X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Allow-Request-Method');
@@ -114,7 +115,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         break;
                 }
 
-                cadValidation = cadValidation + (value_.mandatory ? ',mandatory' : '')
+                cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
                 this.validations_object[key][key_] = cadValidation
 
                 if (value_.type.toLowerCase().includes('array')) {
@@ -141,14 +142,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 delete this.populations_object[key]
             }
         }
-        /*
-         console.log('SCHEMA OBJECT', this.schemas_object)
-         console.log('VALIDATION OBJECT', this.validations_object)
-         console.log('Models OBJECT', this.models_object)
 
-        */
-
-        console.log('pop OBJECT', this.populations_object)
 
         for (var [key, value] of Object.entries(jsonDefinition)) {
             if (value && value.operation && (value.operation.all || value.operation.createOne)) {
@@ -181,17 +175,29 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
 
         }
 
-        this.app.get('*', function (req, res) {
+
+        this.app.get('/', async function (req, res) {
+            res.status(200).json({
+                success: true,
+                code: 200,
+                error: '',
+                message: 'APIed Piper has been successful started',
+                container_id: await getId()
+            })
+        })
+
+        this.app.get('*', async function (req, res) {
             res.status(404).json({
                 success: false,
                 code: 404,
                 error: 'Resource not found',
                 message: 'APIed Piper has been successful started',
+                container_id: await getId()
             })
         })
 
 
-        this.start = function () {
+        this.start = async function () {
             if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
                 this.httpsServer.listen(ssl_config.port, () => {
                     console.log("https server start al port", ssl_config.port);

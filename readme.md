@@ -25,40 +25,42 @@ npm install apied-piper
 ```javascript
 // example definition object
 let definitionObject = {
-    employee: {
-        operation: {
-            createOne: true,
-            createMany: true,
-            getMany: true,
-            getOneById: true,
-            getOneWhere: true,
-            findUpdateOrCreate: true,
-            findUpdate: true,
-            updateById: true,
-            findIdAndDelete: true,
-        },
-        definition: {
-            name: {
-                type: 'string',
-                mandatory: true
-            },
-            position: {
-                type: 'age',
-            },
-            location: {
-                type: 'string',
-            },
-        }
+  employee: {
+    operation: {
+      createOne: true,
+      createMany: true,
+      getMany: true,
+      getOneById: true,
+      getOneWhere: true,
+      findUpdateOrCreate: true,
+      findUpdate: true,
+      updateById: true,
+      findIdAndDelete: true,
+    },
+    definition: {
+      name: {
+        type: 'string',
+        mandatory: true
+      },
+      position: {
+        type: 'age',
+      },
+      location: {
+        type: 'string',
+      },
     }
+  }
 }
 
 // import library
 let piedPiper = require('apied-piper');
 
-//Create new service API REST instance
-let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/piedpipper', 3000)
+let options = {active_cors: true}
 
-// satar the service
+//Create new service API REST instance
+let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/piedpipper', 3000, options)
+
+// start the service
 microService.start()
 
 ```
@@ -113,42 +115,57 @@ let definitionObject = {
         operation: {
             createOne: true,
             createMany: true,
-            getMany: true,
-            getOneById: true,
-            getOneWhere: true,
-            findUpdateOrCreate: true,
-            findUpdate: true,
-            updateById: true,
-            findIdAndDelete: true,
+          getMany: true,
+          getOneById: true,
+          getOneWhere: true,
+          findUpdateOrCreate: true,
+          findUpdate: true,
+          updateById: true,
+          findIdAndDelete: true,
         },
-        definition: {
-            name: {
-                type: 'string',
-                mandatory: true
-            },
-            description: {
-                type: 'string',
-                mandatory: true
-            },
-            isOpen: {
-                type: 'boolean',
-            },
-            position: {
-                type: 'number',
-            },
-            createdAt: {
-                type: 'date',
-                mandatory: true,
-                default_function: dateFunction
-            },
-            classmates: {
-                type: 'array_oid',
-                rel: 'classmate'
-            }
-
+      definition: {
+        name: {
+          type: 'string',
+          mandatory: true
+        },
+        description: {
+          type: 'string',
+          mandatory: true
+        },
+        isOpen: {
+          type: 'boolean',
+        },
+        position: {
+          type: 'number',
+        },
+        createdAt: {
+          type: 'date',
+          mandatory: true,
+          default_function: dateFunction
+        },
+        classmates: {
+          type: 'array_oid',
+          rel: 'classmate'
         }
+
+      }
     }
 }
+
+```
+
+**SSL support**
+
+```javascript
+
+let options = {active_cors: false}
+let ssl_config = {
+  private: "path/to/private/key", // SSL key file location
+  cert: "path/to/certificate/file", // CERT  file location
+  port: 443,// SSL port
+}
+
+let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/apied-pipper', 80, options, ssl_config)
 
 ```
 
