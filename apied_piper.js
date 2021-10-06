@@ -46,11 +46,13 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
 
 
 
-        this.app.get('/', function (req, res) {
+        this.app.get('/', async function (req, res) {
             res.status(200).json({
                 success: true,
                 code: 200,
+                error: '',
                 message: 'APIed Piper has been successful started',
+                container_id: await getId()
             })
         })
 
@@ -175,16 +177,6 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
 
         }
 
-
-        this.app.get('/', async function (req, res) {
-            res.status(200).json({
-                success: true,
-                code: 200,
-                error: '',
-                message: 'APIed Piper has been successful started',
-                container_id: await getId()
-            })
-        })
 
         this.app.get('*', async function (req, res) {
             res.status(404).json({
