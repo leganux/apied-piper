@@ -57,9 +57,128 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             });
         }
 
-        this.middleware = [function (req, res, next) {
+        this.acl = options?.acl ? options.acl : ''
+
+        this.middleware = [async function (req, res, next) {
             try {
-                if (options.acl && typeof options.acl == 'object') {
+                if (this.acl && typeof this.acl == 'object') {
+                    let token = req?.headers?.authorization
+                    if (!token) {
+                        res.status(403).json({
+                            success: false,
+                            code: 403,
+                            error: 'No token present',
+                            message: '',
+                        })
+                        return;
+                    }
+
+                    if (token.includes('Bearer')) {
+                        token = token.replace('Bearer', '')
+                    }
+                    token = token.trim()
+
+                    let decoded = jwt.verify(token, this.passForJwt);
+
+                    if (!decoded) {
+                        res.status(403).json({
+                            success: false,
+                            code: 403,
+                            error: 'Access error',
+                            message: '',
+                        })
+                        return;
+                    }
+
+                    let finduser = await this.internalUser.findOne({
+                        user: decoded.user,
+                        profile: decoded.profile,
+                        active: true
+                    })
+                    if (!finduser) {
+                        res.status(403).json({
+                            success: false,
+                            code: 403,
+                            error: 'Access error',
+                            message: '',
+                        })
+                        return;
+                    }
+
+                    if (!this.acl || !this.acl[finduser.profile]) {
+                        res.status(403).json({
+                            success: false,
+                            code: 403,
+                            error: 'Access error',
+                            message: '',
+                        })
+                        return;
+                    }
+
+                    let metod = req.method
+                    let uri = req.originalUrl
+
+                    let compareUri = metod.toUpperCase() + ':' + uri
+
+                    let arrOfValidUris = []
+                    for (let [key, value] of Object.entries(this.acl[finduser.profile])) {
+                        if (value == '*') {
+                            arrOfValidUris.push('POST:' + this.api_base_uri + key + '')
+                            arrOfValidUris.push('POST:' + this.api_base_uri + key + '/many')
+                            arrOfValidUris.push('GET:' + this.api_base_uri + key + '/')
+                            arrOfValidUris.push('GET:' + this.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('GET:' + this.api_base_uri + key + '/one')
+                            arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_update_or_create')
+                            arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_where_and_update')
+                            arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('DELETE:' + this.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('POST:' + this.api_base_uri + key + '/datatable')
+                        } else {
+                            if (value.createOne) {
+                                arrOfValidUris.push('POST:' + this.api_base_uri + key + '')
+                            }
+                            if (value.createMany) {
+                                arrOfValidUris.push('POST:' + this.api_base_uri + key + '/many')
+                            }
+                            if (value.getMany) {
+                                arrOfValidUris.push('GET:' + this.api_base_uri + key + '/')
+                            }
+                            if (value.getOneById) {
+                                arrOfValidUris.push('GET:' + this.api_base_uri + key + '/:id')
+                            }
+                            if (value.getOneWhere) {
+                                arrOfValidUris.push('GET:' + this.api_base_uri + key + '/one')
+                            }
+                            if (value.findUpdateOrCreate) {
+                                arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_update_or_create')
+                            }
+                            if (value.findUpdate) {
+                                arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_where_and_update')
+
+                            }
+                            if (value.updateById) {
+                                arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/:id')
+                            }
+                            if (value.findIdAndDelete) {
+                                arrOfValidUris.push('DELETE:' + this.api_base_uri + key + '/:id')
+                            }
+                            if (value.datatable) {
+                                arrOfValidUris.push('POST:' + this.api_base_uri + key + '/datatable')
+                            }
+
+                        }
+
+                    }
+                    if(arrOfValidUris.includes(compareUri)){
+                        next()
+                    }
+
+                    res.status(403).json({
+                        success: false,
+                        code: 403,
+                        error: 'Unauthorized',
+                        message: '',
+                    })
 
                 } else {
                     next();
@@ -123,7 +242,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             this.ms = new apiato();
 
 
-            for (var [key, value] of Object.entries(jsonDefinition)) {
+            for (let [key, value] of Object.entries(jsonDefinition)) {
                 if (!value || !value.definition || !value.operation) {
                     throw new Error('There are a missing parameter in definition object')
                 }
@@ -293,6 +412,9 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             if (!options_?.fAfterRegister) {
                 options_.fAfterRegister = false
             }
+            if (!options_?.durationToken) {
+                options_.durationToken = 60
+            }
 
             if (!options_?.passForJwt) {
                 options_.passForJwt = 'bachmanityinsanity'
@@ -313,6 +435,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 timestamps: true
             });
             let User = this.mongoose.model(collection, userSchema, collection);
+            this.internalUser = User
 
             let user_ = await User.findOne({user: user, profile: 'Admin'})
             if (!user_) {
@@ -326,7 +449,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 await user_.save()
             }
 
-            this.app.post(this.api_base_uri + '/register/:profile', async function (req, res) {
+            this.app.post(this.api_base_uri + 'register/:profile', async function (req, res) {
                 try {
                     let {user, pass} = req.body
                     let {profile} = req.params
@@ -366,7 +489,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 }
             })
 
-            this.app.post(this.api_base_uri + '/login', async function (req, res) {
+            this.app.post(this.api_base_uri + 'login', async function (req, res) {
                 try {
                     let {user, pass} = req.body
 
@@ -392,7 +515,10 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         return 0
                     }
                     delete newUser.pass
-                    let token = jwt.sign(newUser, options.passForJwt);
+                    let token = jwt.sign({
+                        data: newUser,
+                        exp: Math.floor(Date.now() / 1000) + (60 * options_.durationToken),
+                    }, options.passForJwt);
 
                     res.status(200).json({
                         success: false,

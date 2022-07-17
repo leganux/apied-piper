@@ -1,9 +1,5 @@
 let piedpiper = require('./index')
 
-let dateFunction = function () {
-    return new Date()
-}
-
 let definition = {
     kindOfClassmate: {
         operation: {
@@ -17,11 +13,6 @@ let definition = {
             active: {
                 type: 'boolean',
                 mandatory: true
-            },
-            createdAt: {
-                type: 'date',
-                mandatory: true,
-                default_function: dateFunction
             },
         },
         datatable_search_fields: ['name'],
@@ -76,11 +67,7 @@ let definition = {
             position: {
                 type: 'number',
             },
-            createdAt: {
-                type: 'date',
-                mandatory: true,
-                default_function: dateFunction
-            },
+
             classmates: {
                 type: 'array_oid',
                 rel: 'classmate'
