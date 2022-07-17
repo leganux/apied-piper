@@ -23,7 +23,8 @@ let definition = {
                 mandatory: true,
                 default_function: dateFunction
             },
-        }
+        },
+        datatable_search_fields: ['name'],
     },
     classmate: {
         operation: {
@@ -45,7 +46,8 @@ let definition = {
             moreInfo: {
                 type: 'any',
             },
-        }
+        },
+        datatable_search_fields: ['name']
     },
     classRoom: {
         operation: {
@@ -88,6 +90,47 @@ let definition = {
     }
 }
 
+let acl = {
+    Admin: {
+        kindOfClassmate: '*',
+        classmate: '*',
+        classRoom: '*',
+    },
+    User: {
+        kindOfClassmate: {
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+            findUpdateOrCreate: true,
+            findUpdate: true,
+            updateById: true,
+            findIdAndDelete: true,
+            datatable: true,
+        },
+        classmate: {
+            createOne: true,
+            createMany: true,
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+        },
+        classRoom: {
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+        },
 
-let microService = new piedpiper(definition, 'mongodb://localhost:27017/piedpipper', 3000)
+    }
+}
+
+
+let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pied', 3000, {
+    db_timestamps: true,
+    api_base_uri: '/apiv2/',
+    acl: acl
+})
+
+
+microService.constructRoutes()
+microService.activeLoginAndRegister() //{user: 'Admin', pass: '12345'}
 microService.start()

@@ -60,6 +60,31 @@ let options = {active_cors: true}
 //Create new service API REST instance
 let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/piedpipper', 3000, options)
 
+/*
+* NEW: you can get the express, instance app to make custom routes
+*/
+let app = microService.getExpressInstanceApp();
+
+
+app.get('/hello', async function (req, res) {
+    res.status(200).json({
+        message: 'It Works!!!'
+    })
+    return
+})
+
+
+/*
+* 
+* Coming soon: you can get the mongoose, instance app to make custom querys
+* 
+*/
+let mongoose = microService.getMongooseInstanceApp();
+
+// construct routes
+microService.constructRoutes()
+
+
 // start the service
 microService.start()
 

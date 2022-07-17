@@ -1,12 +1,16 @@
-var fs = require('fs');
-var http = require('http');
-var https = require('https');
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
+const bcrypt = require('bcrypt-updated');
+const jwt = require('jsonwebtoken');
 
-var express = require('express');
+const saltRounds = 10;
+
+const express = require('express');
 const bodyParser = require('body-parser');
 const getId = require('docker-container-id');
 
-let apiato = require('apiato')
+let apiato = require('apiato');
 
 
 let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_config) {
@@ -22,6 +26,10 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.app.use(bodyParser.urlencoded({extended: true}));
         this.app.use(bodyParser.json());
         this.credentials = false
+        this.allowedRoutes = {}
+        if (!options) {
+            options = {}
+        }
 
         if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
             this.privateKey = fs.readFileSync(ssl_config.private, 'utf8');
@@ -33,6 +41,11 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.httpServer = http.createServer(this.app);
         this.mongoose.connect(mongoDBUri, {useUnifiedTopology: true, useNewUrlParser: true});
         this.db = this.mongoose.connection;
+        this.api_base_uri = '/api/';
+
+        if (options.api_base_uri) {
+            this.api_base_uri = options.api_base_uri
+        }
 
         if (options?.active_cors) {
             this.app.use((req, res, next) => {
@@ -44,152 +57,375 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             });
         }
 
+        this.middleware = [function (req, res, next) {
+            try {
+                if (options.acl && typeof options.acl == 'object') {
+
+                } else {
+                    next();
+                    return
+                }
+                res.status(403).json({
+                    success: false,
+                    code: 403,
+                    error: 'middleware or acl error',
+                    message: '',
+                })
+            } catch (e) {
+                console.error(e)
+                res.status(403).json({
+                    success: false,
+                    code: 403,
+                    error: e,
+                    message: 'middleware or acl error',
+
+                })
+            }
+
+        }]
+
+        if (options.middleware && typeof options.middleware == 'function' || Array.isArray(options.middleware)) {
+            this.middleware.push(options.middleware)
+        }
+
+        this.db_timestamps = false
+        if (options.db_timestamps) {
+            this.db_timestamps = options.db_timestamps
+        }
 
 
-        this.app.get('/', async function (req, res) {
-            res.status(200).json({
-                success: true,
-                code: 200,
-                error: '',
-                message: 'APIed Piper has been successful started',
-                container_id: await getId()
-            })
-        })
+        this.getExpressInstanceApp = function () {
+            return this.app
+        }
+        this.getMongooseInstanceApp = function () {
+            return this.mongoose
+        }
 
-        // consturct models and schema objects
-
-        this.ms = new apiato();
         let Schema = this.mongoose.Schema;
         this.schemas_object = {}
         this.models_object = {}
         this.validations_object = {}
         this.populations_object = {}
 
-        for (var [key, value] of Object.entries(jsonDefinition)) {
-            if (!value || !value.definition || !value.operation) {
-                throw new Error('There are a missing parameter in definition object')
-            }
-            // run the definition objects
-            this.schemas_object[key] = {}
-            this.validations_object[key] = {}
-            this.models_object[key] = {}
-            this.populations_object[key] = {}
 
-            for (var [key_, value_] of Object.entries(value.definition)) {
-                if (!value_ || typeof value_ != 'object') {
-                    throw new Error('definition must be an object')
-                }
-                if (!value_.type) {
-                    throw new Error('Type must be defined')
-                }
-
-                let type = Schema.Types.Mixed
-
-                let cadValidation = ''
-                switch (value_.type.toLowerCase()) {
-                    case 'string':
-                        type: String
-                        cadValidation = cadValidation + 'string'
-                        break;
-                    case 'number':
-                        type: Number
-                        cadValidation = cadValidation + 'number'
-                        break;
-                    case 'boolean':
-                        type: Boolean
-                        cadValidation = cadValidation + 'boolean'
-                        break;
-                    case 'date':
-                        type: Date
-                        cadValidation = cadValidation + 'date'
-                        break;
-                    case 'oid':
-                        type: Schema.Types.ObjectId
-                        this.populations_object[key][key_] = this.models_object[value_.rel]
-                        break;
-                    case 'array_oid':
-                        type: Schema.Types.ObjectId
-                        cadValidation = cadValidation + 'array'
-                        this.populations_object[key][key_] = this.models_object[value_.rel]
-                        break;
-                    default:
-                        type: Schema.Types.Mixed
-                        break;
-                }
-
-                cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
-                this.validations_object[key][key_] = cadValidation
-
-                if (value_.type.toLowerCase().includes('array')) {
-                    this.schemas_object[key][key_] = [{
-                        type: type,
-                        required: value_.mandatory ? value_.mandatory : false,
-                        default: value_.default_function ? value_.default_function() : undefined,
-                        ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : undefined,
-                    }]
-                } else {
-                    this.schemas_object[key][key_] = {
-                        type: type,
-                        required: value_.mandatory ? value_.mandatory : false,
-                        default: value_.default_function ? value_.default_function() : undefined,
-                        ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : false,
-                    }
-                    if (!this.schemas_object[key][key_].ref) {
-                        delete this.schemas_object[key][key_].ref
-                    }
-                }
-            }
-            this.models_object[key] = this.mongoose.model(key, this.schemas_object[key]);
-            if (!this.populations_object[key]) {
-                delete this.populations_object[key]
-            }
-        }
-
-
-        for (var [key, value] of Object.entries(jsonDefinition)) {
-            if (value && value.operation && (value.operation.all || value.operation.createOne)) {
-                this.app.post('/api/' + key, this.ms.createOne(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.createMany)) {
-                this.app.post('/api/' + key + '/many', this.ms.createMany(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.getMany)) {
-                this.app.get('/api/' + key, this.ms.getMany(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.getOneById)) {
-                this.app.get('/api/' + key + '/:id', this.ms.getOneById(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.getOneWhere)) {
-                this.app.get('/api/' + key + '/one', this.ms.getOneWhere(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.findUpdateOrCreate)) {
-                this.app.put('/api/' + key + '/find_update_or_create', this.ms.findUpdateOrCreate(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.findUpdate)) {
-                this.app.put('/api/' + key + '/find_where_and_update', this.ms.findUpdate(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.updateById)) {
-                this.app.put('/api/' + key + '/:id', this.ms.updateById(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-            }
-            if (value && value.operation && (value.operation.all || value.operation.findIdAndDelete)) {
-                this.app.delete('/api/' + key + '/:id', this.ms.findIdAndDelete(this.models_object[key], {}))
-            }
-
-        }
-
-
-        this.app.get('*', async function (req, res) {
-            res.status(404).json({
-                success: false,
-                code: 404,
-                error: 'Resource not found',
-                message: 'APIed Piper has been successful started',
-                container_id: await getId()
+        this.constructRoutes = function () {
+            this.app.get('/', async function (req, res) {
+                res.status(200).json({
+                    success: true,
+                    code: 200,
+                    error: '',
+                    message: 'APIed Piper has been successful started',
+                    container_id: await getId()
+                })
             })
-        })
+
+            // consturct models and schema objects
+            this.ms = new apiato();
 
 
+            for (var [key, value] of Object.entries(jsonDefinition)) {
+                if (!value || !value.definition || !value.operation) {
+                    throw new Error('There are a missing parameter in definition object')
+                }
+                // run the definition objects
+                this.schemas_object[key] = {}
+                this.validations_object[key] = {}
+                this.models_object[key] = {}
+                this.populations_object[key] = {}
+
+                for (var [key_, value_] of Object.entries(value.definition)) {
+                    if (!value_ || typeof value_ != 'object') {
+                        throw new Error('definition must be an object')
+                    }
+                    if (!value_.type) {
+                        throw new Error('Type must be defined')
+                    }
+
+                    let type = Schema.Types.Mixed
+
+                    let cadValidation = ''
+                    switch (value_.type.toLowerCase()) {
+                        case 'string':
+                            type: String
+                            cadValidation = cadValidation + 'string'
+                            break;
+                        case 'number':
+                            type: Number
+                            cadValidation = cadValidation + 'number'
+                            break;
+                        case 'boolean':
+                            type: Boolean
+                            cadValidation = cadValidation + 'boolean'
+                            break;
+                        case 'date':
+                            type: Date
+                            cadValidation = cadValidation + 'date'
+                            break;
+                        case 'oid':
+                            type: Schema.Types.ObjectId
+                            this.populations_object[key][key_] = this.models_object[value_.rel]
+                            break;
+                        case 'array_oid':
+                            type: Schema.Types.ObjectId
+                            cadValidation = cadValidation + 'array'
+                            this.populations_object[key][key_] = this.models_object[value_.rel]
+                            break;
+                        default:
+                            type: Schema.Types.Mixed
+                            break;
+                    }
+
+                    cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
+                    this.validations_object[key][key_] = cadValidation
+
+                    if (value_.type.toLowerCase().includes('array')) {
+                        this.schemas_object[key][key_] = [{
+                            type: type,
+                            required: value_.mandatory ? value_.mandatory : false,
+                            default: value_.default_function ? value_.default_function() : undefined,
+                            ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : undefined,
+                        }]
+                    } else {
+                        this.schemas_object[key][key_] = {
+                            type: type,
+                            required: value_.mandatory ? value_.mandatory : false,
+                            default: value_.default_function ? value_.default_function() : undefined,
+                            ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : false,
+                        }
+                        if (!this.schemas_object[key][key_].ref) {
+                            delete this.schemas_object[key][key_].ref
+                        }
+                    }
+                }
+
+                this.schemas_object[key] = new Schema(this.schemas_object[key], {timestamps: this.db_timestamps})
+
+                this.models_object[key] = this.mongoose.model(key, this.schemas_object[key]);
+                if (!this.populations_object[key]) {
+                    delete this.populations_object[key]
+                }
+            }
+
+
+            // Routes generator using apiato.js
+            for (var [key, value] of Object.entries(jsonDefinition)) {
+
+                this.allowedRoutes[key] = []
+
+                if (value && value.operation && (value.operation.all || value.operation.createOne)) {
+                    this.app.post(this.api_base_uri + key, this.middleware, this.ms.createOne(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('POST:/-createOne')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.createMany)) {
+                    this.app.post(this.api_base_uri + key + '/many', this.middleware, this.ms.createMany(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('POST:/many-createMany')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.getMany)) {
+                    this.app.get(this.api_base_uri + key, this.middleware, this.ms.getMany(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('GET:/-getMany')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.getOneById)) {
+                    this.app.get(this.api_base_uri + key + '/:id', this.middleware, this.ms.getOneById(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('GET:/<id>-getOneById')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.getOneWhere)) {
+                    this.app.get(this.api_base_uri + key + '/one', this.middleware, this.ms.getOneWhere(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('GET:/one-getOneWhere')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.findUpdateOrCreate)) {
+                    this.app.put(this.api_base_uri + key + '/find_update_or_create', this.middleware, this.ms.findUpdateOrCreate(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('PUT:/find_update_or_create-findUpdateOrCreate')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.findUpdate)) {
+                    this.app.put(this.api_base_uri + key + '/find_where_and_update', this.middleware, this.ms.findUpdate(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('PUT:/find_where_and_update-findUpdate')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.updateById)) {
+                    this.app.put(this.api_base_uri + key + '/:id', this.middleware, this.ms.updateById(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
+                    this.allowedRoutes[key].push('PUT:/<id> - updateById')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.findIdAndDelete)) {
+                    this.app.delete(this.api_base_uri + key + '/:id', this.middleware, this.ms.findIdAndDelete(this.models_object[key], {}))
+                    this.allowedRoutes[key].push('DELETE:/<id>-findIdAndDelete')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.datatable)) {
+                    this.app.post(this.api_base_uri + key + '/datatable', this.middleware, this.ms.datatable(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
+                    this.allowedRoutes[key].push('POST:/datatable-datatable')
+                }
+
+            }
+
+            let registered_routes = this.allowedRoutes
+
+            this.app.get(this.api_base_uri, async function (req, res) {
+                res.status(200).json({
+                    success: true,
+                    code: 200,
+                    error: '',
+                    message: 'Welcome to the API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can use this base url to easy create a basic crud system using CODE-RAG generator, and now you can integrate BigHead-middleware  to complement this project ',
+                    data: {registered_routes},
+                    container_id: await getId()
+                })
+            })
+
+
+        }
+
+
+        this.activeLoginAndRegister = async function (defaultUser, collection, options_) {
+            let user = 'Jared'
+            let pass = 'Meinertzhagens-Haversack'
+            if (!options_) {
+                options_ = {}
+            }
+
+            if (defaultUser && defaultUser.user) {
+                user = defaultUser.user
+            }
+            if (defaultUser && defaultUser.pass) {
+                pass = defaultUser.pass
+            }
+
+            if (!options_?.activeNewUsers) {
+                options_.activeNewUsers = false
+            }
+
+            if (!options_?.fAfterRegister) {
+                options_.fAfterRegister = false
+            }
+
+            if (!options_?.passForJwt) {
+                options_.passForJwt = 'bachmanityinsanity'
+            }
+
+            this.passForJwt = options_.passForJwt
+
+            collection = collection ? collection : 'signature-box'
+
+            let hash = bcrypt.hashSync(pass, saltRounds);
+
+            let userSchema = new Schema({
+                user: String,
+                pass: String,
+                profile: String,
+                active: Boolean,
+            }, {
+                timestamps: true
+            });
+            let User = this.mongoose.model(collection, userSchema, collection);
+
+            let user_ = await User.findOne({user: user, profile: 'Admin'})
+            if (!user_) {
+                console.info('Making default user Admin ' + user + ':' + pass + ' Collection: ' + collection + ' Profile: Admin')
+                user_ = new User({
+                    user: user,
+                    profile: 'Admin',
+                    pass: hash,
+                    active: true
+                })
+                await user_.save()
+            }
+
+            this.app.post(this.api_base_uri + '/register/:profile', async function (req, res) {
+                try {
+                    let {user, pass} = req.body
+                    let {profile} = req.params
+
+                    let newUser = await User.findOne({user: user, profile: profile})
+                    if (!newUser) {
+                        hash = bcrypt.hashSync(pass, saltRounds);
+                        newUser = new User({
+                            user: user,
+                            profile: profile,
+                            active: options_.activeNewUsers,
+                            pass: hash
+                        })
+                        newUser = await newUser.save()
+                    }
+
+                    if (options_.fAfterRegister && typeof options_.fAfterRegister == 'function') {
+                        options_.fAfterRegister(newUser)
+                    }
+
+                    res.status(200).json({
+                        success: false,
+                        code: 200,
+                        message: 'Register success',
+                        data: {user: newUser}
+                    })
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).json({
+                        success: false,
+                        code: 500,
+                        error: e,
+                        stack: e?.stack,
+                        message: 'Internal server error',
+                        container_id: await getId()
+                    })
+                }
+            })
+
+            this.app.post(this.api_base_uri + '/login', async function (req, res) {
+                try {
+                    let {user, pass} = req.body
+
+
+                    let newUser = await User.findOne({user: user, active: true}).lean()
+                    if (!newUser) {
+                        res.status(403).json({
+                            success: false,
+                            code: 403,
+                            error: 'Login error',
+                            message: 'Error login',
+                        })
+                        return 0
+                    }
+                    let validate = bcrypt.compareSync(pass, newUser.pass)
+                    if (!validate) {
+                        res.status(403).json({
+                            success: false,
+                            code: 403,
+                            error: 'Login error',
+                            message: 'Error login',
+                        })
+                        return 0
+                    }
+                    delete newUser.pass
+                    let token = jwt.sign(newUser, options.passForJwt);
+
+                    res.status(200).json({
+                        success: false,
+                        code: 200,
+                        message: 'Register success',
+                        data: {user: newUser, token: token}
+                    })
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).json({
+                        success: false,
+                        code: 500,
+                        error: e,
+                        stack: e?.stack,
+                        message: 'Internal server error',
+                        container_id: await getId()
+                    })
+                }
+            })
+
+
+        }
         this.start = async function () {
+            this.app.get('*', async function (req, res) {
+                res.status(404).json({
+                    success: false,
+                    code: 404,
+                    error: 'Resource not found',
+                    message: 'APIed Piper has been successful started',
+                    container_id: await getId()
+                })
+            })
+
             if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
                 this.httpsServer.listen(ssl_config.port, () => {
                     console.log("https server start al port", ssl_config.port);
@@ -203,6 +439,8 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             });
             return true
         }
+
+
     } catch (e) {
         throw e
     }
