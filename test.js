@@ -119,5 +119,9 @@ let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pie
 
 
 microService.constructRoutes()
-microService.activeLoginAndRegister() //{user: 'Admin', pass: '12345'}
+microService.activeLoginAndRegister(undefined, undefined,
+    {
+        activeNewUsers: true
+    }
+) //{user: 'Admin', pass: '12345'}
 microService.start()

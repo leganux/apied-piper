@@ -1,0 +1,55 @@
+{
+	"info": {
+		"_postman_id": "8419c612-c394-43c1-a7e7-78226b8d3dfb",
+		"name": "apied pipper",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "base uri",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}{{base_uri}}",
+					"host": [
+						"{{host}}{{base_uri}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"user\":\"Erick\",\r\n    \"pass\":\"1234567890\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}{{base_uri}}register/:profile",
+					"host": [
+						"{{host}}{{base_uri}}register"
+					],
+					"path": [
+						":profile"
+					],
+					"variable": [
+						{
+							"key": "profile",
+							"value": "Admin"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

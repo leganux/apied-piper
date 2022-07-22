@@ -416,7 +416,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 options_.durationToken = 60
             }
 
-            if (!options_?.passForJwt) {
+            if (!options_.passForJwt  || options_.passForJwt.trim() == ''  ) {
                 options_.passForJwt = 'bachmanityinsanity'
             }
 
@@ -471,7 +471,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     }
 
                     res.status(200).json({
-                        success: false,
+                        success: true,
                         code: 200,
                         message: 'Register success',
                         data: {user: newUser}
@@ -515,10 +515,11 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         return 0
                     }
                     delete newUser.pass
-                    let token = jwt.sign({
-                        data: newUser,
-                        exp: Math.floor(Date.now() / 1000) + (60 * options_.durationToken),
-                    }, options.passForJwt);
+                    console.log(this.passForJwt)
+
+                    let token = jwt.sign(
+                        {data:newUser},
+                     this.passForJwt,{ expiresIn:  (60 * options_.durationToken),});
 
                     res.status(200).json({
                         success: false,
