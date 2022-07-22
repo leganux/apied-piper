@@ -14,6 +14,7 @@ let apiato = require('apiato');
 
 
 let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_config) {
+    let el = this
     try {
         this.mongoose = require("mongoose");
         if (!jsonDefinition) {
@@ -27,6 +28,13 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.app.use(bodyParser.json());
         this.credentials = false
         this.allowedRoutes = {}
+        this.acl = false
+
+        this.schemas_object = {}
+        this.validations_object = {}
+        this.models_object = {}
+        this.populations_object = {}
+
         if (!options) {
             options = {}
         }
@@ -42,6 +50,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.mongoose.connect(mongoDBUri, {useUnifiedTopology: true, useNewUrlParser: true});
         this.db = this.mongoose.connection;
         this.api_base_uri = '/api/';
+        this.internalUser = {}
 
         if (options.api_base_uri) {
             this.api_base_uri = options.api_base_uri
@@ -57,11 +66,16 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             });
         }
 
-        this.acl = options?.acl ? options.acl : ''
+        if (options.acl && typeof options.acl == 'object') {
+            el.acl = options.acl
+        }
 
-        this.middleware = [async function (req, res, next) {
+
+        el.middleware = [async function (req, res, next) {
             try {
-                if (this.acl && typeof this.acl == 'object') {
+
+                if (el.acl) {
+
                     let token = req?.headers?.authorization
                     if (!token) {
                         res.status(403).json({
@@ -78,7 +92,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     }
                     token = token.trim()
 
-                    let decoded = jwt.verify(token, this.passForJwt);
+                    let decoded = jwt.verify(token, el.JWTPASSWORD);
 
                     if (!decoded) {
                         res.status(403).json({
@@ -90,11 +104,12 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         return;
                     }
 
-                    let finduser = await this.internalUser.findOne({
-                        user: decoded.user,
-                        profile: decoded.profile,
+                    let finduser = await el.internalUser.findOne({
+                        user: decoded.data.user,
+                        profile: decoded.data.profile,
                         active: true
                     })
+
                     if (!finduser) {
                         res.status(403).json({
                             success: false,
@@ -105,11 +120,11 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         return;
                     }
 
-                    if (!this.acl || !this.acl[finduser.profile]) {
+                    if (!el.acl || !el.acl[finduser.profile]) {
                         res.status(403).json({
                             success: false,
                             code: 403,
-                            error: 'Access error',
+                            error: 'Access error x',
                             message: '',
                         })
                         return;
@@ -118,60 +133,95 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     let metod = req.method
                     let uri = req.originalUrl
 
-                    let compareUri = metod.toUpperCase() + ':' + uri
+                    let compareUri = metod.toUpperCase() + '$' + uri
 
                     let arrOfValidUris = []
-                    for (let [key, value] of Object.entries(this.acl[finduser.profile])) {
+
+
+                    for (let [key, value] of Object.entries(el.acl[finduser.profile])) {
                         if (value == '*') {
-                            arrOfValidUris.push('POST:' + this.api_base_uri + key + '')
-                            arrOfValidUris.push('POST:' + this.api_base_uri + key + '/many')
-                            arrOfValidUris.push('GET:' + this.api_base_uri + key + '/')
-                            arrOfValidUris.push('GET:' + this.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('GET:' + this.api_base_uri + key + '/one')
-                            arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_update_or_create')
-                            arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_where_and_update')
-                            arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('DELETE:' + this.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('POST:' + this.api_base_uri + key + '/datatable')
+                            arrOfValidUris.push('POST$' + el.api_base_uri + key + '')
+                            arrOfValidUris.push('POST$' + el.api_base_uri + key + '/many')
+                            arrOfValidUris.push('GET$' + el.api_base_uri + key + '')
+                            arrOfValidUris.push('GET$' + el.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('GET$' + el.api_base_uri + key + '/one')
+                            arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_update_or_create')
+                            arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_where_and_update')
+                            arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('DELETE$' + el.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('POST$' + el.api_base_uri + key + '/datatable')
                         } else {
                             if (value.createOne) {
-                                arrOfValidUris.push('POST:' + this.api_base_uri + key + '')
+                                arrOfValidUris.push('POST$' + el.api_base_uri + key + '')
                             }
                             if (value.createMany) {
-                                arrOfValidUris.push('POST:' + this.api_base_uri + key + '/many')
+                                arrOfValidUris.push('POST$' + el.api_base_uri + key + '/many')
                             }
                             if (value.getMany) {
-                                arrOfValidUris.push('GET:' + this.api_base_uri + key + '/')
+                                arrOfValidUris.push('GET$' + el.api_base_uri + key + '')
                             }
                             if (value.getOneById) {
-                                arrOfValidUris.push('GET:' + this.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('GET$' + el.api_base_uri + key + '/:id')
                             }
                             if (value.getOneWhere) {
-                                arrOfValidUris.push('GET:' + this.api_base_uri + key + '/one')
+                                arrOfValidUris.push('GET$' + el.api_base_uri + key + '/one')
                             }
                             if (value.findUpdateOrCreate) {
-                                arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_update_or_create')
+                                arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_update_or_create')
                             }
                             if (value.findUpdate) {
-                                arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/find_where_and_update')
+                                arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_where_and_update')
 
                             }
                             if (value.updateById) {
-                                arrOfValidUris.push('PUT:' + this.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/:id')
                             }
                             if (value.findIdAndDelete) {
-                                arrOfValidUris.push('DELETE:' + this.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('DELETE$' + el.api_base_uri + key + '/:id')
                             }
                             if (value.datatable) {
-                                arrOfValidUris.push('POST:' + this.api_base_uri + key + '/datatable')
+                                arrOfValidUris.push('POST$' + el.api_base_uri + key + '/datatable')
                             }
 
                         }
 
                     }
-                    if(arrOfValidUris.includes(compareUri)){
-                        next()
+
+
+                    if (compareUri.endsWith('/')) {
+                        compareUri = compareUri.slice(0, -1)
                     }
+                    console.log('lista ', arrOfValidUris, compareUri)
+                    if (arrOfValidUris.includes(compareUri)) {
+                        next()
+                        return
+                    }
+
+                    let oArr = []
+                    for (let item of arrOfValidUris) {
+                        if (item.includes(':')) {
+                            let cUri = compareUri.split('/')
+                            let citem = item.split('/')
+                            let newer = []
+
+                            for (let i = 0; i < citem.length; i++) {
+                                let ytem = citem[i]
+                                if (ytem.includes(':')) {
+                                    newer.push(cUri[i])
+                                } else {
+                                    newer.push(ytem)
+                                }
+                            }
+                            newer = newer.join('/')
+                            oArr.push(newer)
+                        }
+                    }
+                    console.log('lista 2 ', oArr, compareUri)
+                    if (oArr.includes(compareUri)) {
+                        next()
+                        return
+                    }
+
 
                     res.status(403).json({
                         success: false,
@@ -179,17 +229,13 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         error: 'Unauthorized',
                         message: '',
                     })
+                    return
 
                 } else {
                     next();
                     return
                 }
-                res.status(403).json({
-                    success: false,
-                    code: 403,
-                    error: 'middleware or acl error',
-                    message: '',
-                })
+
             } catch (e) {
                 console.error(e)
                 res.status(403).json({
@@ -199,12 +245,13 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     message: 'middleware or acl error',
 
                 })
+                return
             }
 
         }]
 
-        if (options.middleware && typeof options.middleware == 'function' || Array.isArray(options.middleware)) {
-            this.middleware.push(options.middleware)
+        if (options.middleware && typeof options.middleware == 'function') {
+            el.middleware.push(options.middleware)
         }
 
         this.db_timestamps = false
@@ -225,10 +272,15 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.models_object = {}
         this.validations_object = {}
         this.populations_object = {}
+        this.JWTPASSWORD = ''
 
 
         this.constructRoutes = function () {
-            this.app.get('/', async function (req, res) {
+            let el = this
+            console.log('el middle', el.middleware)
+
+
+            el.app.get('/', async function (req, res) {
                 res.status(200).json({
                     success: true,
                     code: 200,
@@ -239,18 +291,18 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             })
 
             // consturct models and schema objects
-            this.ms = new apiato();
+            el.ms = new apiato();
 
 
             for (let [key, value] of Object.entries(jsonDefinition)) {
                 if (!value || !value.definition || !value.operation) {
                     throw new Error('There are a missing parameter in definition object')
                 }
-                // run the definition objects
-                this.schemas_object[key] = {}
-                this.validations_object[key] = {}
-                this.models_object[key] = {}
-                this.populations_object[key] = {}
+                // run the definition objectss
+                el.schemas_object[key] = {}
+                el.validations_object[key] = {}
+                el.models_object[key] = {}
+                el.populations_object[key] = {}
 
                 for (var [key_, value_] of Object.entries(value.definition)) {
                     if (!value_ || typeof value_ != 'object') {
@@ -295,33 +347,33 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     }
 
                     cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
-                    this.validations_object[key][key_] = cadValidation
+                    el.validations_object[key][key_] = cadValidation
 
                     if (value_.type.toLowerCase().includes('array')) {
-                        this.schemas_object[key][key_] = [{
+                        el.schemas_object[key][key_] = [{
                             type: type,
                             required: value_.mandatory ? value_.mandatory : false,
                             default: value_.default_function ? value_.default_function() : undefined,
-                            ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : undefined,
+                            ref: value_.rel && el.models_object[value_.rel] ? el.models_object[value_.rel] : undefined,
                         }]
                     } else {
-                        this.schemas_object[key][key_] = {
+                        el.schemas_object[key][key_] = {
                             type: type,
                             required: value_.mandatory ? value_.mandatory : false,
                             default: value_.default_function ? value_.default_function() : undefined,
-                            ref: value_.rel && this.models_object[value_.rel] ? this.models_object[value_.rel] : false,
+                            ref: value_.rel && el.models_object[value_.rel] ? el.models_object[value_.rel] : false,
                         }
-                        if (!this.schemas_object[key][key_].ref) {
-                            delete this.schemas_object[key][key_].ref
+                        if (!el.schemas_object[key][key_].ref) {
+                            delete el.schemas_object[key][key_].ref
                         }
                     }
                 }
 
-                this.schemas_object[key] = new Schema(this.schemas_object[key], {timestamps: this.db_timestamps})
+                el.schemas_object[key] = new Schema(el.schemas_object[key], {timestamps: el.db_timestamps})
 
-                this.models_object[key] = this.mongoose.model(key, this.schemas_object[key]);
-                if (!this.populations_object[key]) {
-                    delete this.populations_object[key]
+                el.models_object[key] = el.mongoose.model(key, el.schemas_object[key]);
+                if (!el.populations_object[key]) {
+                    delete el.populations_object[key]
                 }
             }
 
@@ -329,54 +381,54 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             // Routes generator using apiato.js
             for (var [key, value] of Object.entries(jsonDefinition)) {
 
-                this.allowedRoutes[key] = []
+                el.allowedRoutes[key] = []
 
                 if (value && value.operation && (value.operation.all || value.operation.createOne)) {
-                    this.app.post(this.api_base_uri + key, this.middleware, this.ms.createOne(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('POST:/-createOne')
+                    el.app.post(el.api_base_uri + key, el.middleware, el.ms.createOne(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('POST:/-createOne')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.createMany)) {
-                    this.app.post(this.api_base_uri + key + '/many', this.middleware, this.ms.createMany(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('POST:/many-createMany')
+                    el.app.post(el.api_base_uri + key + '/many', el.middleware, el.ms.createMany(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('POST:/many-createMany')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.getMany)) {
-                    this.app.get(this.api_base_uri + key, this.middleware, this.ms.getMany(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('GET:/-getMany')
+                    el.app.get(el.api_base_uri + key, el.middleware, el.ms.getMany(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('GET:/-getMany')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.getOneById)) {
-                    this.app.get(this.api_base_uri + key + '/:id', this.middleware, this.ms.getOneById(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('GET:/<id>-getOneById')
+                    el.app.get(el.api_base_uri + key + '/:id', el.middleware, el.ms.getOneById(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('GET:/<id>-getOneById')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.getOneWhere)) {
-                    this.app.get(this.api_base_uri + key + '/one', this.middleware, this.ms.getOneWhere(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('GET:/one-getOneWhere')
+                    el.app.get(el.api_base_uri + key + '/one', el.middleware, el.ms.getOneWhere(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('GET:/one-getOneWhere')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.findUpdateOrCreate)) {
-                    this.app.put(this.api_base_uri + key + '/find_update_or_create', this.middleware, this.ms.findUpdateOrCreate(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('PUT:/find_update_or_create-findUpdateOrCreate')
+                    el.app.put(el.api_base_uri + key + '/find_update_or_create', el.middleware, el.ms.findUpdateOrCreate(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('PUT:/find_update_or_create-findUpdateOrCreate')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.findUpdate)) {
-                    this.app.put(this.api_base_uri + key + '/find_where_and_update', this.middleware, this.ms.findUpdate(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('PUT:/find_where_and_update-findUpdate')
+                    el.app.put(el.api_base_uri + key + '/find_where_and_update', el.middleware, el.ms.findUpdate(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('PUT:/find_where_and_update-findUpdate')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.updateById)) {
-                    this.app.put(this.api_base_uri + key + '/:id', this.middleware, this.ms.updateById(this.models_object[key], this.validations_object[key], (this.populations_object[key] ? this.populations_object[key] : false), {}))
-                    this.allowedRoutes[key].push('PUT:/<id> - updateById')
+                    el.app.put(el.api_base_uri + key + '/:id', el.middleware, el.ms.updateById(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('PUT:/<id> - updateById')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.findIdAndDelete)) {
-                    this.app.delete(this.api_base_uri + key + '/:id', this.middleware, this.ms.findIdAndDelete(this.models_object[key], {}))
-                    this.allowedRoutes[key].push('DELETE:/<id>-findIdAndDelete')
+                    el.app.delete(el.api_base_uri + key + '/:id', el.middleware, el.ms.findIdAndDelete(el.models_object[key], {}))
+                    el.allowedRoutes[key].push('DELETE:/<id>-findIdAndDelete')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.datatable)) {
-                    this.app.post(this.api_base_uri + key + '/datatable', this.middleware, this.ms.datatable(this.models_object[key], (this.populations_object[key] ? this.populations_object[key] : false), (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
-                    this.allowedRoutes[key].push('POST:/datatable-datatable')
+                    el.app.post(el.api_base_uri + key + '/datatable', el.middleware, el.ms.datatable(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
+                    el.allowedRoutes[key].push('POST:/datatable-datatable')
                 }
 
             }
 
-            let registered_routes = this.allowedRoutes
+            let registered_routes = el.allowedRoutes
 
-            this.app.get(this.api_base_uri, async function (req, res) {
+            el.app.get(el.api_base_uri, async function (req, res) {
                 res.status(200).json({
                     success: true,
                     code: 200,
@@ -392,8 +444,12 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
 
 
         this.activeLoginAndRegister = async function (defaultUser, collection, options_) {
+            let el = this
             let user = 'Jared'
+            let JWTPASSWORD = 'bachmanityinsanity'
+
             let pass = 'Meinertzhagens-Haversack'
+
             if (!options_) {
                 options_ = {}
             }
@@ -416,11 +472,11 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 options_.durationToken = 60
             }
 
-            if (!options_.passForJwt  || options_.passForJwt.trim() == ''  ) {
-                options_.passForJwt = 'bachmanityinsanity'
+            if (options_?.JWTPASSWORD && options_?.JWTPASSWORD !== '') {
+                JWTPASSWORD = options_.JWTPASSWORD
             }
 
-            this.passForJwt = options_.passForJwt
+            el.JWTPASSWORD = JWTPASSWORD
 
             collection = collection ? collection : 'signature-box'
 
@@ -435,7 +491,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 timestamps: true
             });
             let User = this.mongoose.model(collection, userSchema, collection);
-            this.internalUser = User
+            el.internalUser = User
 
             let user_ = await User.findOne({user: user, profile: 'Admin'})
             if (!user_) {
@@ -514,17 +570,19 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         })
                         return 0
                     }
-                    delete newUser.pass
-                    console.log(this.passForJwt)
+                    delete newUser.pass;
 
-                    let token = jwt.sign(
-                        {data:newUser},
-                     this.passForJwt,{ expiresIn:  (60 * options_.durationToken),});
+
+                    let token = await jwt.sign({
+                        exp: Math.floor(Date.now() / 1000) + (60 * options_.durationToken),
+                        data: newUser
+                    }, JWTPASSWORD);
+
 
                     res.status(200).json({
-                        success: false,
+                        success: true,
                         code: 200,
-                        message: 'Register success',
+                        message: 'Login success',
                         data: {user: newUser, token: token}
                     })
                 } catch (e) {
