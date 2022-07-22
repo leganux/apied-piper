@@ -26,6 +26,51 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
+					"raw": "{\r\n    \"user\":\"ErickSon\",\r\n    \"pass\":\"1234567890\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}{{base_uri}}/register/:profile",
+					"host": [
+						"{{host}}{{base_uri}}"
+					],
+					"path": [
+						"register",
+						":profile"
+					],
+					"variable": [
+						{
+							"key": "profile",
+							"value": "Admin"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = JSON.parse(responseBody);\r",
+							"postman.setEnvironmentVariable(\"token\",  jsonData.data.token);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
 					"raw": "{\r\n    \"user\":\"Erick\",\r\n    \"pass\":\"1234567890\"\r\n}",
 					"options": {
 						"raw": {
@@ -34,17 +79,126 @@
 					}
 				},
 				"url": {
-					"raw": "{{host}}{{base_uri}}register/:profile",
+					"raw": "{{host}}{{base_uri}}/login",
 					"host": [
-						"{{host}}{{base_uri}}register"
+						"{{host}}{{base_uri}}"
 					],
 					"path": [
-						":profile"
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "createOne",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\":\"sporter\",\r\n    \"active\":true\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}{{base_uri}}/:collection/",
+					"host": [
+						"{{host}}{{base_uri}}"
+					],
+					"path": [
+						":collection",
+						""
 					],
 					"variable": [
 						{
-							"key": "profile",
-							"value": "Admin"
+							"key": "collection",
+							"value": "kindOfClassmate"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getMany",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}{{base_uri}}/:collection/",
+					"host": [
+						"{{host}}{{base_uri}}"
+					],
+					"path": [
+						":collection",
+						""
+					],
+					"variable": [
+						{
+							"key": "collection",
+							"value": "kindOfClassmate"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete by id",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{host}}{{base_uri}}/:collection/:id",
+					"host": [
+						"{{host}}{{base_uri}}"
+					],
+					"path": [
+						":collection",
+						":id"
+					],
+					"variable": [
+						{
+							"key": "collection",
+							"value": "kindOfClassmate"
+						},
+						{
+							"key": "id",
+							"value": "62da1d4e83a7b35cacb80214"
 						}
 					]
 				}
