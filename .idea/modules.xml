@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/apied-pipper.iml" filepath="$PROJECT_DIR$/.idea/apied-pipper.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../code-rag-sdk/.idea/code-rag-sdk.iml" filepath="$PROJECT_DIR$/../code-rag-sdk/.idea/code-rag-sdk.iml" />
     </modules>
   </component>
 </project>

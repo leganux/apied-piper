@@ -3,25 +3,24 @@ const http = require('http');
 const https = require('https');
 const bcrypt = require('bcrypt-updated');
 const jwt = require('jsonwebtoken');
-
 const saltRounds = 10;
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const getId = require('docker-container-id');
-
 let apiato = require('apiato');
+const morgan = require('morgan');
+const moment = require('moment');
 
 
-let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_config) {
-    let el = this
+let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
+
     try {
         this.mongoose = require("mongoose");
         if (!jsonDefinition) {
-            throw 'You must to add the json definition'
+            throw new Error('You must to add the json definition')
         }
         if (!mongoDBUri) {
-            throw 'You must to add the mongo db URI'
+            throw new Error('You must to add the mongo db URI')
         }
         this.app = express()
         this.app.use(bodyParser.urlencoded({extended: true}));
@@ -29,16 +28,16 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.credentials = false
         this.allowedRoutes = {}
         this.acl = false
-
+        this.acl_custom = false
         this.schemas_object = {}
         this.validations_object = {}
         this.models_object = {}
         this.populations_object = {}
-
+        this.customRoutes = []
+        this.activeLogRequest = false
         if (!options) {
             options = {}
         }
-
         if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
             this.privateKey = fs.readFileSync(ssl_config.private, 'utf8');
             this.certificate = fs.readFileSync(ssl_config.cert, 'utf8');
@@ -55,9 +54,11 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         if (options.api_base_uri) {
             this.api_base_uri = options.api_base_uri
         }
-
+        if (options.activeLogRequest) {
+            this.activeLogRequest = options.activeLogRequest
+        }
         if (options?.active_cors) {
-            this.app.use((req, res, next) => {
+            this.app.use((_req, res, next) => {
                 res.header('Access-Control-Allow-Origin', '*');
                 res.header('Access-Control-Allow-Headers', 'Authorization, X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Allow-Request-Method');
                 res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
@@ -65,16 +66,18 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 next();
             });
         }
-
         if (options.acl && typeof options.acl == 'object') {
-            el.acl = options.acl
+            this.acl = options.acl
+        }
+        if (options.acl_custom && typeof options.acl_custom == 'object') {
+            this.acl_custom = options.acl_custom
         }
 
 
-        el.middleware = [async function (req, res, next) {
+        this.middleware = [async function (req, res, next) {
             try {
 
-                if (el.acl) {
+                if (this.acl) {
 
                     let token = req?.headers?.authorization
                     if (!token) {
@@ -120,7 +123,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         return;
                     }
 
-                    if (!el.acl || !el.acl[finduser.profile]) {
+                    if (!this.acl || !this.acl[finduser.profile]) {
                         res.status(403).json({
                             success: false,
                             code: 403,
@@ -138,53 +141,60 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     let arrOfValidUris = []
 
 
-                    for (let [key, value] of Object.entries(el.acl[finduser.profile])) {
+                    for (let [key, value] of Object.entries(this.acl[finduser.profile])) {
                         if (value == '*') {
-                            arrOfValidUris.push('POST$' + el.api_base_uri + key + '')
-                            arrOfValidUris.push('POST$' + el.api_base_uri + key + '/many')
-                            arrOfValidUris.push('GET$' + el.api_base_uri + key + '')
-                            arrOfValidUris.push('GET$' + el.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('GET$' + el.api_base_uri + key + '/one')
-                            arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_update_or_create')
-                            arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_where_and_update')
-                            arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('DELETE$' + el.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('POST$' + el.api_base_uri + key + '/datatable')
+                            arrOfValidUris.push('POST$' + this.api_base_uri + key + '')
+                            arrOfValidUris.push('POST$' + this.api_base_uri + key + '/many')
+                            arrOfValidUris.push('GET$' + this.api_base_uri + key + '')
+                            arrOfValidUris.push('GET$' + this.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('GET$' + this.api_base_uri + key + '/one')
+                            arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_update_or_create')
+                            arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_where_and_update')
+                            arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('DELETE$' + this.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('POST$' + this.api_base_uri + key + '/datatable')
                         } else {
                             if (value.createOne) {
-                                arrOfValidUris.push('POST$' + el.api_base_uri + key + '')
+                                arrOfValidUris.push('POST$' + this.api_base_uri + key + '')
                             }
                             if (value.createMany) {
-                                arrOfValidUris.push('POST$' + el.api_base_uri + key + '/many')
+                                arrOfValidUris.push('POST$' + this.api_base_uri + key + '/many')
                             }
                             if (value.getMany) {
-                                arrOfValidUris.push('GET$' + el.api_base_uri + key + '')
+                                arrOfValidUris.push('GET$' + this.api_base_uri + key + '')
                             }
                             if (value.getOneById) {
-                                arrOfValidUris.push('GET$' + el.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('GET$' + this.api_base_uri + key + '/:id')
                             }
                             if (value.getOneWhere) {
-                                arrOfValidUris.push('GET$' + el.api_base_uri + key + '/one')
+                                arrOfValidUris.push('GET$' + this.api_base_uri + key + '/one')
                             }
                             if (value.findUpdateOrCreate) {
-                                arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_update_or_create')
+                                arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_update_or_create')
                             }
                             if (value.findUpdate) {
-                                arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/find_where_and_update')
+                                arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_where_and_update')
 
                             }
                             if (value.updateById) {
-                                arrOfValidUris.push('PUT$' + el.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/:id')
                             }
                             if (value.findIdAndDelete) {
-                                arrOfValidUris.push('DELETE$' + el.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('DELETE$' + this.api_base_uri + key + '/:id')
                             }
                             if (value.datatable) {
-                                arrOfValidUris.push('POST$' + el.api_base_uri + key + '/datatable')
+                                arrOfValidUris.push('POST$' + this.api_base_uri + key + '/datatable')
                             }
 
                         }
 
+                    }
+
+                    //crea el mapa de verificación para las custom URL
+                    for (let item of this.acl_custom[finduser.profile]) {
+                        if (item.path && item.method) {
+                            arrOfValidUris.push(item.method.toUpperCase() + '$' + this.api_base_uri + item.path)
+                        }
                     }
 
 
@@ -249,23 +259,20 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             }
 
         }]
-
         if (options.middleware && typeof options.middleware == 'function') {
-            el.middleware.push(options.middleware)
+            this.middleware.push(options.middleware)
         }
-
         this.db_timestamps = false
         if (options.db_timestamps) {
             this.db_timestamps = options.db_timestamps
         }
-
-
         this.getExpressInstanceApp = function () {
             return this.app
         }
         this.getMongooseInstanceApp = function () {
             return this.mongoose
         }
+
 
         let Schema = this.mongoose.Schema;
         this.schemas_object = {}
@@ -275,12 +282,24 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
         this.JWTPASSWORD = ''
 
 
-        this.constructRoutes = function () {
+        this.constructRoutes = function (custom = []) {
             let el = this
-            console.log('el middle', el.middleware)
+            el.customRoutes = custom
+
+            if (el.activeLogRequest) {
+                el.app.use(morgan(function (tokens, req, res) {
+                    return [
+                        moment().format('YYYY-MM-DD hh:mm:ss'),
+                        tokens.method(req, res),
+                        tokens.url(req, res),
+                        tokens.status(req, res),
+                        tokens['response-time'](req, res), 'ms'
+                    ].join('  ');
+                }))
+            }
 
 
-            el.app.get('/', async function (req, res) {
+            el.app.get('/', async function (_req, res) {
                 res.status(200).json({
                     success: true,
                     code: 200,
@@ -289,22 +308,19 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     container_id: await getId()
                 })
             })
-
             // consturct models and schema objects
             el.ms = new apiato();
-
-
-            for (let [key, value] of Object.entries(jsonDefinition)) {
-                if (!value || !value.definition || !value.operation) {
+            for (let [key1, value1] of Object.entries(jsonDefinition)) {
+                if (!value1 || !value1.definition || !value1.operation) {
                     throw new Error('There are a missing parameter in definition object')
                 }
                 // run the definition objectss
-                el.schemas_object[key] = {}
-                el.validations_object[key] = {}
-                el.models_object[key] = {}
-                el.populations_object[key] = {}
+                el.schemas_object[key1] = {}
+                el.validations_object[key1] = {}
+                el.models_object[key1] = {}
+                el.populations_object[key1] = {}
 
-                for (var [key_, value_] of Object.entries(value.definition)) {
+                for (var [key_, value_] of Object.entries(value1.definition)) {
                     if (!value_ || typeof value_ != 'object') {
                         throw new Error('definition must be an object')
                     }
@@ -317,72 +333,68 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     let cadValidation = ''
                     switch (value_.type.toLowerCase()) {
                         case 'string':
-                            type: String
+
                             cadValidation = cadValidation + 'string'
                             break;
                         case 'number':
-                            type: Number
+
                             cadValidation = cadValidation + 'number'
                             break;
                         case 'boolean':
-                            type: Boolean
+
                             cadValidation = cadValidation + 'boolean'
                             break;
                         case 'date':
-                            type: Date
+
                             cadValidation = cadValidation + 'date'
                             break;
                         case 'oid':
-                            type: Schema.Types.ObjectId
-                            this.populations_object[key][key_] = this.models_object[value_.rel]
+
+                            this.populations_object[key1][key_] = this.models_object[value_.rel]
                             break;
                         case 'array_oid':
-                            type: Schema.Types.ObjectId
+
                             cadValidation = cadValidation + 'array'
-                            this.populations_object[key][key_] = this.models_object[value_.rel]
+                            this.populations_object[key1][key_] = this.models_object[value_.rel]
                             break;
                         default:
-                            type: Schema.Types.Mixed
+
                             break;
                     }
 
                     cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
-                    el.validations_object[key][key_] = cadValidation
+                    el.validations_object[key1][key_] = cadValidation
 
                     if (value_.type.toLowerCase().includes('array')) {
-                        el.schemas_object[key][key_] = [{
+                        el.schemas_object[key1][key_] = [{
                             type: type,
                             required: value_.mandatory ? value_.mandatory : false,
                             default: value_.default_function ? value_.default_function() : undefined,
                             ref: value_.rel && el.models_object[value_.rel] ? el.models_object[value_.rel] : undefined,
                         }]
                     } else {
-                        el.schemas_object[key][key_] = {
+                        el.schemas_object[key1][key_] = {
                             type: type,
                             required: value_.mandatory ? value_.mandatory : false,
                             default: value_.default_function ? value_.default_function() : undefined,
                             ref: value_.rel && el.models_object[value_.rel] ? el.models_object[value_.rel] : false,
                         }
-                        if (!el.schemas_object[key][key_].ref) {
-                            delete el.schemas_object[key][key_].ref
+                        if (!el.schemas_object[key1][key_].ref) {
+                            delete el.schemas_object[key1][key_].ref
                         }
                     }
                 }
 
-                el.schemas_object[key] = new Schema(el.schemas_object[key], {timestamps: el.db_timestamps})
+                el.schemas_object[key1] = new Schema(el.schemas_object[key1], {timestamps: el.db_timestamps})
 
-                el.models_object[key] = el.mongoose.model(key, el.schemas_object[key]);
-                if (!el.populations_object[key]) {
-                    delete el.populations_object[key]
+                el.models_object[key1] = el.mongoose.model(key1, el.schemas_object[key1]);
+                if (!el.populations_object[key1]) {
+                    delete el.populations_object[key1]
                 }
             }
-
-
             // Routes generator using apiato.js
             for (var [key, value] of Object.entries(jsonDefinition)) {
-
                 el.allowedRoutes[key] = []
-
                 if (value && value.operation && (value.operation.all || value.operation.createOne)) {
                     el.app.post(el.api_base_uri + key, el.middleware, el.ms.createOne(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
                     el.allowedRoutes[key].push('POST:/-createOne')
@@ -425,20 +437,71 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                 }
 
             }
-
             let registered_routes = el.allowedRoutes
 
-            el.app.get(el.api_base_uri, async function (req, res) {
+            el.app.get(el.api_base_uri, async function (_req, res) {
                 res.status(200).json({
                     success: true,
                     code: 200,
                     error: '',
-                    message: 'Welcome to the API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can use this base url to easy create a basic crud system using CODE-RAG generator, and now you can integrate BigHead-middleware  to complement this project ',
-                    data: {registered_routes},
+                    message: 'APIED-PIPPER API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can easy create a basic Micro-Frontend using CODE-RAG generator ',
+                    data: {},
+                    container_id: await getId()
+                })
+            })
+            el.app.post(el.api_base_uri, async function (_req, res) {
+
+                let data = {}
+
+
+                data = {
+                    routes: registered_routes,
+                    acl: el.acl
+                }
+
+                res.status(200).json({
+                    success: true,
+                    code: 200,
+                    error: '',
+                    message: 'Apied-pipper API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can easy create a basic Micro-Frontend using BigHead generator ',
+                    data: data,
                     container_id: await getId()
                 })
             })
 
+            let tempMiddleware = async function (_req, _res, next) {
+                next()
+            }
+            //construye los custom URLS
+            for (let route of el.customRoutes) {
+                if (route.path && route.method && (route.function && typeof route.function == 'function')) {
+                    let midd = tempMiddleware
+                    if (route.middleware === true) {
+                        midd = el.middleware
+                    }
+                    switch (route.method.toUpperCase()) {
+                        case 'POST' :
+                            el.app.post(el.api_base_uri + route.path, midd, route.function)
+                            break;
+                        case 'GET' :
+                            el.app.get(el.api_base_uri + route.path, midd, route.function)
+                            break;
+                        case 'PUT' :
+                            el.app.put(el.api_base_uri + route.path, midd, route.function)
+                            break;
+                        case 'DELETE' :
+                            el.app.delete(el.api_base_uri + route.path, midd, route.function)
+                            break;
+                        case 'PATCH' :
+                            el.app.patch(el.api_base_uri + route.path, midd, route.function)
+                            break;
+                        case 'OPTIONS' :
+                            el.app.options(el.api_base_uri + route.path, midd, route.function)
+                            break;
+                    }
+
+                }
+            }
 
         }
 
@@ -507,14 +570,15 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
 
             this.app.post(this.api_base_uri + 'register/:profile', async function (req, res) {
                 try {
-                    let {user, pass} = req.body
+                    let user__ = req.body.user
+                    let pass__ = req.body.pass
                     let {profile} = req.params
 
-                    let newUser = await User.findOne({user: user, profile: profile})
+                    let newUser = await User.findOne({user: user__, profile: profile})
                     if (!newUser) {
-                        hash = bcrypt.hashSync(pass, saltRounds);
+                        hash = bcrypt.hashSync(pass__, saltRounds);
                         newUser = new User({
-                            user: user,
+                            user: user__,
                             profile: profile,
                             active: options_.activeNewUsers,
                             pass: hash
@@ -547,10 +611,11 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
 
             this.app.post(this.api_base_uri + 'login', async function (req, res) {
                 try {
-                    let {user, pass} = req.body
+                    let user__ = req.body.user
+                    let pass__ = req.body.pass
 
 
-                    let newUser = await User.findOne({user: user, active: true}).lean()
+                    let newUser = await User.findOne({user: user__, active: true}).lean()
                     if (!newUser) {
                         res.status(403).json({
                             success: false,
@@ -560,7 +625,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                         })
                         return 0
                     }
-                    let validate = bcrypt.compareSync(pass, newUser.pass)
+                    let validate = bcrypt.compareSync(pass__, newUser.pass)
                     if (!validate) {
                         res.status(403).json({
                             success: false,
@@ -597,11 +662,10 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     })
                 }
             })
-
-
         }
+
         this.start = async function () {
-            this.app.get('*', async function (req, res) {
+            this.app.get('*', async function (_req, res) {
                 res.status(404).json({
                     success: false,
                     code: 404,
@@ -610,7 +674,6 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
                     container_id: await getId()
                 })
             })
-
             if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
                 this.httpsServer.listen(ssl_config.port, () => {
                     console.log("https server start al port", ssl_config.port);
@@ -625,8 +688,8 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port, options, ssl_conf
             return true
         }
 
-
     } catch (e) {
+        console.error(e)
         throw e
     }
 }

@@ -114,14 +114,16 @@ let acl = {
 let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pied', 3000, {
     db_timestamps: true,
     api_base_uri: '/apiv2/',
-    acl: acl
+    acl: acl,
+    activeLogRequest: true
 })
 
 
 microService.constructRoutes()
 microService.activeLoginAndRegister(undefined, undefined,
     {
-        activeNewUsers: true
+        activeNewUsers: true,
+
     }
 ) //{user: 'Admin', pass: '12345'}
 microService.start()
