@@ -50,6 +50,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
         this.db = this.mongoose.connection;
         this.api_base_uri = '/api/';
         this.internalUser = {}
+        this.adminProfileName = "Admin"
 
         if (options.api_base_uri) {
             this.api_base_uri = options.api_base_uri
@@ -259,6 +260,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
             }
 
         }]
+
         if (options.middleware && typeof options.middleware == 'function') {
             this.middleware.push(options.middleware)
         }
@@ -282,7 +284,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
         this.JWTPASSWORD = ''
 
 
-        this.constructRoutes = function (custom = []) {
+        this.constructRoutes = function () {
             let el = this
             el.customRoutes = custom
 
@@ -444,7 +446,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
                     success: true,
                     code: 200,
                     error: '',
-                    message: 'APIED-PIPPER API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can easy create a basic Micro-Frontend using CODE-RAG generator ',
+                    message: 'APIED-PIPPER API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can easy create consume this API using CODE-RAG-SDK ',
                     data: {},
                     container_id: await getId()
                 })
@@ -463,16 +465,29 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
                     success: true,
                     code: 200,
                     error: '',
-                    message: 'Apied-pipper API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can easy create a basic Micro-Frontend using BigHead generator ',
+                    message: 'Apied-pipper API base Route. Please read the docs https://www.npmjs.com/package/apied-piper. You can easy create consume this API using CODE-RAG-SDK ',
                     data: data,
                     container_id: await getId()
                 })
             })
 
+
+        }
+
+        this.addCustomRoutes = async function (custom = [], middleware) {
+            let el = this
+            el.customRoutes = custom
+
             let tempMiddleware = async function (_req, _res, next) {
                 next()
             }
+
+            if (middleware && typeof middleware == 'function') {
+                el.middleware.push(middleware)
+            }
+
             //construye los custom URLS
+
             for (let route of el.customRoutes) {
                 if (route.path && route.method && (route.function && typeof route.function == 'function')) {
                     let midd = tempMiddleware
@@ -506,19 +521,24 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
         }
 
 
-        this.activeLoginAndRegister = async function (defaultUser, collection, options_) {
+        this.activeLoginAndRegister = async function (defaultUser = {}, collection = 'signature-box', options_ = {}) {
             let el = this
             let user = 'Jared'
+            let email = 'Jared@piedpiper.com'
             let JWTPASSWORD = 'bachmanityinsanity'
 
             let pass = 'Meinertzhagens-Haversack'
 
-            if (!options_) {
-                options_ = {}
+
+            if (options_.adminProfileName) {
+                el.adminProfileName = options_.adminProfileName
             }
 
             if (defaultUser && defaultUser.user) {
                 user = defaultUser.user
+            }
+            if (defaultUser && defaultUser.email) {
+                email = defaultUser.email
             }
             if (defaultUser && defaultUser.pass) {
                 pass = defaultUser.pass
@@ -541,27 +561,31 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
 
             el.JWTPASSWORD = JWTPASSWORD
 
-            collection = collection ? collection : 'signature-box'
 
             let hash = bcrypt.hashSync(pass, saltRounds);
 
             let userSchema = new Schema({
-                user: String,
+                user: {type: String, required: true, unique: true},
                 pass: String,
-                profile: String,
-                active: Boolean,
+                email: {type: String, required: true, unique: true},
+                profile: {type: String, required: true},
+                active: {type: Boolean, default: false},
             }, {
                 timestamps: true
             });
             let User = this.mongoose.model(collection, userSchema, collection);
             el.internalUser = User
 
-            let user_ = await User.findOne({user: user, profile: 'Admin'})
+            let user_ = await User.findOne({
+                user: user,
+                profile: el.adminProfileName
+            })
             if (!user_) {
-                console.info('Making default user Admin ' + user + ':' + pass + ' Collection: ' + collection + ' Profile: Admin')
+                console.info('Making default user   ' + user + ':' + pass + ' with mail : ' + email + ' Collection: ' + collection + ' Profile: ' + el.adminProfileName)
                 user_ = new User({
                     user: user,
-                    profile: 'Admin',
+                    email: email,
+                    profile: el.adminProfileName,
                     pass: hash,
                     active: true
                 })
@@ -572,13 +596,31 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
                 try {
                     let user__ = req.body.user
                     let pass__ = req.body.pass
+                    let email__ = req.body.email
                     let {profile} = req.params
 
-                    let newUser = await User.findOne({user: user__, profile: profile})
+                    let newUser = await User.findOne({
+                        $or: [
+                            {user: user__},
+                            {email: email__}
+                        ],
+                        profile: profile
+                    })
+
+                    if (newUser) {
+                        res.status(200).json({
+                            success: true,
+                            code: 200,
+                            message: 'User or email already exists',
+                        })
+                        return
+                    }
+
                     if (!newUser) {
                         hash = bcrypt.hashSync(pass__, saltRounds);
                         newUser = new User({
                             user: user__,
+                            email: email__,
                             profile: profile,
                             active: options_.activeNewUsers,
                             pass: hash
@@ -587,7 +629,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
                     }
 
                     if (options_.fAfterRegister && typeof options_.fAfterRegister == 'function') {
-                        options_.fAfterRegister(newUser)
+                        newUser = await options_.fAfterRegister(newUser)
                     }
 
                     res.status(200).json({

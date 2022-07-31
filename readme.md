@@ -25,37 +25,36 @@ npm install apied-piper
 ```javascript
 // example definition object
 let definitionObject = {
-  employee: {
-    operation: {
-      createOne: true,
-      createMany: true,
-      getMany: true,
-      getOneById: true,
-      getOneWhere: true,
-      findUpdateOrCreate: true,
-      findUpdate: true,
-      updateById: true,
-      findIdAndDelete: true,
-    },
-    definition: {
-      name: {
-        type: 'string',
-        mandatory: true
-      },
-      position: {
-        type: 'age',
-      },
-      location: {
-        type: 'string',
-      },
+    employee: {
+        operation: {
+            createOne: true,
+            createMany: true,
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+            findUpdateOrCreate: true,
+            findUpdate: true,
+            updateById: true,
+            findIdAndDelete: true,
+        },
+        definition: {
+            name: {
+                type: 'string',
+                mandatory: true
+            },
+            position: {
+                type: 'age',
+            },
+            location: {
+                type: 'string',
+            },
+        }
     }
-  }
 }
 
 // import library
 let piedPiper = require('apied-piper');
 
-let options = {active_cors: true}
 
 //Create new service API REST instance
 let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/piedpipper', 3000, options)
@@ -140,40 +139,40 @@ let definitionObject = {
         operation: {
             createOne: true,
             createMany: true,
-          getMany: true,
-          getOneById: true,
-          getOneWhere: true,
-          findUpdateOrCreate: true,
-          findUpdate: true,
-          updateById: true,
-          findIdAndDelete: true,
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+            findUpdateOrCreate: true,
+            findUpdate: true,
+            updateById: true,
+            findIdAndDelete: true,
         },
-      definition: {
-        name: {
-          type: 'string',
-          mandatory: true
-        },
-        description: {
-          type: 'string',
-          mandatory: true
-        },
-        isOpen: {
-          type: 'boolean',
-        },
-        position: {
-          type: 'number',
-        },
-        createdAt: {
-          type: 'date',
-          mandatory: true,
-          default_function: dateFunction
-        },
-        classmates: {
-          type: 'array_oid',
-          rel: 'classmate'
-        }
+        definition: {
+            name: {
+                type: 'string',
+                mandatory: true
+            },
+            description: {
+                type: 'string',
+                mandatory: true
+            },
+            isOpen: {
+                type: 'boolean',
+            },
+            position: {
+                type: 'number',
+            },
+            createdAt: {
+                type: 'date',
+                mandatory: true,
+                default_function: dateFunction
+            },
+            classmates: {
+                type: 'array_oid',
+                rel: 'classmate'
+            }
 
-      }
+        }
     }
 }
 
@@ -185,12 +184,189 @@ let definitionObject = {
 
 let options = {active_cors: false}
 let ssl_config = {
-  private: "path/to/private/key", // SSL key file location
-  cert: "path/to/certificate/file", // CERT  file location
-  port: 443,// SSL port
+    private: "path/to/private/key", // SSL key file location
+    cert: "path/to/certificate/file", // CERT  file location
+    port: 443,// SSL port
 }
 
 let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/apied-pipper', 80, options, ssl_config)
+
+```
+
+**Options**
+
+Options can be used to personalize every instance of APIed-Piper
+
+```javascript
+
+let options = {
+    active_cors: true, // if you want to allow cors from everywhere *optional*
+    api_base_uri: '/apiv2/', // the base url you consume. default  = /api/ *optional*
+    activeLogRequest: true, // shows in console all the http request in te API *optional*
+    acl: {[object]},  //the acl definition for auth routes. Read the documentation below *optional*
+    acl_custom: {[object]}, //the acl definition for auth in custom routes *optional*
+    middleware: async function (req, res, next) { //custom middelware function for rutes, use as express middelware *optional*
+        next()
+    },
+    db_timestamps: true // adds automaticalli collections fields updateAt & createdAt *optional*
+
+}
+
+
+```
+
+**ACL and Login**
+
+Now in version 3.0+ you can create an easy ACL to allow or disallow access some profiles to some routes. This acl
+includes the pre-register of first admin user, a register module, a login module, a token generator and finaly an
+automatic middleware to validate sessions.
+APIed-Piper now is a solution all in one to easy deploy APIs with protection included.
+
+To use those new functions you must to invoque activeLoginAndRegister method as describe bellow
+
+The ACL object defines which role has what permissions, a continuation an example.
+
+```javascript
+
+let acl = {
+    Admin: {
+        kindOfClassmate: '*',
+        classmate: '*',
+        classRoom: '*',
+    },
+    User: {
+        kindOfClassmate: {
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+            findUpdateOrCreate: true,
+            findUpdate: true,
+            updateById: true,
+            findIdAndDelete: true,
+            datatable: true,
+        },
+        classmate: {
+            createOne: true,
+            createMany: true,
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+        },
+        classRoom: {
+            getMany: true,
+            getOneById: true,
+            getOneWhere: true,
+        },
+
+    }
+}
+
+```
+
+config and call to method
+
+```javascript
+let defaultUser = {user: "Jared", pass: "Meinertzhagens-Haversack", email: "JaredDunn@piedpiper.com"} // defines the first admin will be created in system, be carafull
+let collection = 'signature-box' //the model and collection name to save profiles and roles
+
+let optionsLogin = {
+    activeNewUsers: true, // defines if a new user will be automatically  activated
+    adminProfileName: "Admin", // the name of main role default:admin
+    fAfterRegister: async function (user) { // callback to execute after user register
+        return user
+    },
+    durationToken: 60, // time in munites will token live default:60
+    JWTPASSWORD: "bachmanityinsanity" // the token pasword for auth
+}
+
+microService.activeLoginAndRegister(defaultUser, collection, optionsLogin)
+
+```
+
+<b>How to register and login </b>
+
+Register
+
+```javascript
+
+var myHeaders = new Headers();
+myHeaders.append("Content-Type", "application/json");
+
+var raw = JSON.stringify({
+    "user": "Dinesh",
+    "pass": "hotdog-nothotdog3",
+    "email": "dinesh@piedpipper.com"
+});
+
+var requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
+};
+
+fetch("http://localhost:3000/apiv2/register/<ROLE_NAME>", requestOptions) // ROLE_NAME will be reemplace with the role  name of user you want ro register for example Admin, or User. According to the ACL
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
+
+
+
+```
+
+Login
+
+```javascript
+
+var myHeaders = new Headers();
+myHeaders.append("Content-Type", "application/json");
+
+var raw = JSON.stringify({
+    "user": "Jared",
+    "pass": "Meinertzhagens-Haversack"
+});
+
+var requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
+};
+
+fetch("http://localhost:3000/apiv2/login", requestOptions)
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
+
+
+/** Response example */
+
+let rsp = {
+    "success": true,
+    "code": 200,
+    "message": "Login success",
+    "data": {
+        "user": {
+            "_id": "62e6d094964b170c8a442a7a",
+            "active": true,
+            "user": "Jared",
+            "email": "Jared@piedpiper.com",
+            "profile": "Admin",
+            "createdAt": "2022-07-31T18:57:24.798Z",
+            "updatedAt": "2022-07-31T18:57:24.798Z",
+            "__v": 0
+        },
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTkyOTc1MzEsImRhdGEiOnsiX2lkIjoiNjJlNmQwOTQ5NjRiMTcwYzhhNDQyYTdhIiwiYWN0aXZlIjp0cnVlLCJ1c2VyIjoiSmFyZWQiLCJlbWFpbCI6IkphcmVkQHBpZWRwaXBlci5jb20iLCJwcm9maWxlIjoiQWRtaW4iLCJjcmVhdGVkQXQiOiIyMDIyLTA3LTMxVDE4OjU3OjI0Ljc5OFoiLCJ1cGRhdGVkQXQiOiIyMDIyLTA3LTMxVDE4OjU3OjI0Ljc5OFoiLCJfX3YiOjB9LCJpYXQiOjE2NTkyOTM5MzF9.AkQ1yplY-Xv3dBiL5bd-W_-hOZuxcaUXuEsQMMKy49I"
+    }
+}
+
+
+```
+
+Toke must to be saved locally  to use in every next request to check if user has o no permission to access some route
+
+```javascript
+myHeaders.append("Authorizathion", "Bearer <token here>");
 
 ```
 
@@ -831,7 +1007,6 @@ let populate = {
     users: 0,
 }
 ```
-
 
 <hr>
 

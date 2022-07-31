@@ -125,5 +125,5 @@ microService.activeLoginAndRegister(undefined, undefined,
         activeNewUsers: true,
 
     }
-) //{user: 'Admin', pass: '12345'}
+)
 microService.start()
