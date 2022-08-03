@@ -59,13 +59,6 @@ let piedPiper = require('apied-piper');
 //Create new service API REST instance
 let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/piedpipper', 3000, options)
 
-app.get('/hello', async function (req, res) {
-    res.status(200).json({
-        message: 'It Works!!!'
-    })
-    return
-})
-
 
 // construct routes
 microService.constructRoutes()
