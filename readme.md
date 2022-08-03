@@ -59,12 +59,6 @@ let piedPiper = require('apied-piper');
 //Create new service API REST instance
 let microService = new piedPiper(definitionObject, 'mongodb://localhost:27017/piedpipper', 3000, options)
 
-/*
-* NEW: you can get the express, instance app to make custom routes
-*/
-let app = microService.getExpressInstanceApp();
-
-
 app.get('/hello', async function (req, res) {
     res.status(200).json({
         message: 'It Works!!!'
@@ -72,13 +66,6 @@ app.get('/hello', async function (req, res) {
     return
 })
 
-
-/*
-* 
-* Coming soon: you can get the mongoose, instance app to make custom querys
-* 
-*/
-let mongoose = microService.getMongooseInstanceApp();
 
 // construct routes
 microService.constructRoutes()
@@ -363,7 +350,7 @@ let rsp = {
 
 ```
 
-Toke must to be saved locally  to use in every next request to check if user has o no permission to access some route
+Toke must to be saved locally to use in every next request to check if user has o no permission to access some route
 
 ```javascript
 myHeaders.append("Authorizathion", "Bearer <token here>");
@@ -887,20 +874,6 @@ fetch("http://localhost:3000/api/employee/60e243c82b4d320571d00639", requestOpti
 }
 ```
 
-## Object methods example
-
-**Options**
-
-```javascript
-let options = {
-    "customValidationCode": 450, //default 435
-    "customErrorCode": 600, //default 500
-    "customNotFoundCode": 420, //default 404
-    "mongooseOptions": {}, //bypass mongoose options
-
-}
-```
-
 ## Object request query URL example
 
 **where**
@@ -1006,6 +979,64 @@ let populate = {
     kind: 1,
     users: 0,
 }
+```
+
+## EXTEND: Object methods example
+
+**GET the ExpressJS Instance APP**
+
+This is helpful if you want to add another functionality directly to instance app of express.
+
+```javascript
+let app = microService.getExpressInstanceApp()
+/** you can use to add  some functionalities like this
+ *
+ app.use(<library or function>);*/
+
+//example
+app.use(upload());
+
+```
+
+**GET the Mongoose Instance, schemas, and models**
+
+This is helpful if you want to add another functionality o for custom routes area, you can use models and schemas from
+mongoose.
+
+```javascript
+let {mongooseInstance, schema, model} = microService.getMongooseInstanceApp()
+/** you can use a model or schema like this
+ schema.<modelName>
+ model.<modelName>
+ */
+
+//example
+let list = await model.kindOfClassmate.find()
+```
+
+**Custom Routes**
+
+The custom routes helps you to generate your own routes, in the same way you create it directly in ExpressJS
+
+```javascript
+let custom = [
+    {
+        path: 'custom/route', // defines path will be consumed
+        method: 'GET', // defines method
+        function: async function (req, res) { // defines the rute function in expressjs format
+            res.status(200).json({OK: 'ok'})
+        },
+        middleware: false // defines if this route uses the middleware or not
+    },
+]
+
+
+let middleware_function_for_custom = async function (req, res, next) { //defines if custom routes has speccial middleware checker,
+    next()
+}
+
+microService.addCustomRoutes(custom, middleware_function_for_custom)
+
 ```
 
 <hr>

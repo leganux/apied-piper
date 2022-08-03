@@ -14,6 +14,27 @@ const moment = require('moment');
 
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
+    console.log(`
+Welcome to 
+                                                                                                                         
+       db         88888888ba   88                       88            88888888ba   88                                       
+      d88b        88      "8b  88                       88            88      "8b  ""                                       
+     d8'\`8b       88      ,8P  88                       88            88      ,8P                                           
+    d8'  \`8b      88aaaaaa8P'  88   ,adPPYba,   ,adPPYb,88            88aaaaaa8P'  88  8b,dPPYba,    ,adPPYba,  8b,dPPYba,  
+   d8YaaaaY8b     88""""""'    88  a8P_____88  a8"    \`Y88  aaaaaaaa  88""""""'    88  88P'    "8a  a8P_____88  88P'   "Y8  
+  d8""""""""8b    88           88  8PP"""""""  8b       88  """"""""  88           88  88       d8  8PP"""""""  88          
+ d8'        \`8b   88           88  "8b,   ,aa  "8a,   ,d88            88           88  88b,   ,a8"  "8b,   ,aa  88          
+d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88           88  88\`YbbdP"'    \`"Ybbd8"'  88          
+                                                                                       88                                   
+                                                                                       88      
+                                                                                                  This is a project made by leganux.net (c) 2021-2022  
+                                            ______________________________________
+                                Read the docs at https://www.npmjs.com/package/apied-piper
+                                
+                                                                                                                            
+`)
+
+
     try {
         this.mongoose = require("mongoose");
         if (!jsonDefinition) {
@@ -272,7 +293,11 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
             return this.app
         }
         this.getMongooseInstanceApp = function () {
-            return this.mongoose
+            return {
+                mongooseInstance: this.mongoose,
+                schema: this.schemas_object,
+                model: this.models_object
+            }
         }
 
 
@@ -286,7 +311,7 @@ let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = 
 
         this.constructRoutes = function () {
             let el = this
-            el.customRoutes = custom
+
 
             if (el.activeLogRequest) {
                 el.app.use(morgan(function (tokens, req, res) {

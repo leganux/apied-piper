@@ -111,6 +111,17 @@ let acl = {
 }
 
 
+let custom = [
+    {
+        path: 'custom/route',
+        method: 'GET',
+        function: async function (req, res) {
+            res.status(200).json({OK: 'ok'})
+        },
+        middleware: false
+    },
+]
+
 let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pied', 3000, {
     db_timestamps: true,
     api_base_uri: '/apiv2/',
@@ -120,6 +131,7 @@ let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pie
 
 
 microService.constructRoutes()
+microService.addCustomRoutes(custom)
 microService.activeLoginAndRegister(undefined, undefined,
     {
         activeNewUsers: true,
