@@ -8,6 +8,8 @@ A minute microservice API rest generator
   <img src="https://raw.githubusercontent.com/leganux/apied-pipper/main/apiedpiper.jpg" width="550" title="apied piper logo">
 </p>
 
+NOW AVAILABLE =>> If you want to install Code-Rag-SDK visit
+<a href="https://www.npmjs.com/package/code-rag-sdk" target="_blank">npm Code-Rag-SDK docs</a>
 
 <p align="justify">
 

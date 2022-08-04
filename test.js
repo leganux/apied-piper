@@ -126,7 +126,8 @@ let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pie
     db_timestamps: true,
     api_base_uri: '/apiv2/',
     acl: acl,
-    activeLogRequest: true
+    activeLogRequest: true,
+    active_cors: true
 })
 
 
