@@ -139,4 +139,6 @@ microService.activeLoginAndRegister(undefined, undefined,
 
     }
 )
+microService.publishServerStats()
+microService.addHooliLogger(undefined, 'name')
 microService.start()

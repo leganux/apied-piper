@@ -10,6 +10,8 @@ const getId = require('docker-container-id');
 let apiato = require('apiato');
 const morgan = require('morgan');
 const moment = require('moment');
+var osu = require('node-os-utils')
+let hooli = require("hooli-logger-client")
 
 
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
@@ -106,6 +108,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         res.status(403).json({
                             success: false,
                             code: 403,
+                            type: 1,
                             error: 'No token present',
                             message: '',
                         })
@@ -123,6 +126,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         res.status(403).json({
                             success: false,
                             code: 403,
+                            type: 1,
                             error: 'Access error',
                             message: '',
                         })
@@ -139,6 +143,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         res.status(403).json({
                             success: false,
                             code: 403,
+                            type: 1,
                             error: 'Access error',
                             message: '',
                         })
@@ -149,6 +154,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         res.status(403).json({
                             success: false,
                             code: 403,
+                            type: 1,
                             error: 'Access error x',
                             message: '',
                         })
@@ -259,6 +265,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         success: false,
                         code: 403,
                         error: 'Unauthorized',
+                        type: 2,
                         message: '',
                     })
                     return
@@ -729,6 +736,118 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     })
                 }
             })
+        }
+
+        this.addHooliLogger = async function (host = "http://localhost:3333", AppName = 'APIed-Piper') {
+            let el = this
+            let logger = new hooli(host, AppName, await getId() || 'API-REST')
+            const _privateLog = console.log;
+            const _privateError = console.error;
+            const _privateInfo = console.info;
+            const _privateWarn = console.warn;
+            const _privateDebug = console.debug;
+
+            console.log = async function (message) {
+                _privateLog.apply(console, arguments);
+                logger.log(arguments)
+
+            };
+            console.error = async function (message) {
+                _privateError.apply(console, arguments);
+                logger.error(arguments)
+            };
+            console.info = async function (message) {
+                _privateInfo.apply(console, arguments);
+                logger.info(arguments)
+            };
+            console.warn = async function (message) {
+                _privateWarn.apply(console, arguments);
+                logger.warn(arguments)
+            };
+            console.debug = async function (message) {
+
+                _privateDebug.apply(console, arguments);
+                logger.debug(arguments)
+
+            };
+
+            el.app.use(morgan(function (tokens, req, res) {
+                /*  Implement request logger  */
+                logger.request(JSON.stringify({
+                    method: tokens.method(req, res),
+                    url: tokens.url(req, res),
+                    status: tokens.status(req, res),
+                    body: req.body,
+                    query: req.query,
+                    params: req.params,
+                }))
+                return '';
+            }));
+
+
+        }
+
+        this.publishServerStats = async function () {
+            let el = this
+
+
+            let {cpu, drive, osCmd, mem, netstat, os} = osu
+
+            el.app.get(el.api_base_uri + 'STATS', async function (_req, res) {
+                try {
+
+                    let obj_counts = []
+
+                    for (let [key, value] of Object.entries(el.models_object)) {
+                        obj_counts.push({
+                            name: key,
+                            count: await value.count()
+                        })
+                    }
+
+                    res.status(200).json({
+                        success: true,
+                        code: 200,
+                        error: '',
+                        message: 'APIed-Piper server statistics',
+                        data: {
+                            model_counts: obj_counts,
+                            cpu_usage: await cpu.usage(),
+                            cpu_average: await cpu.average(),
+                            cpu_free: await cpu.free(),
+                            cpu_count: await cpu.count(),
+                            osCmd_whoami: await osCmd.whoami(),
+                            drive_info: await drive.info(),
+                            drive_free: await drive.free(),
+                            drive_used: await drive.used(),
+                            mem_used: await mem.used(),
+                            mem_free: await mem.free(),
+
+                            netstat_inout: await netstat.inOut(),
+                            os_info: await os.oos(),
+                            os_uptime: await os.uptime(),
+                            os_platform: await os.platform(),
+                            os_ip: await os.ip(),
+                            os_hostname: await os.hostname(),
+                            os_arch: await os.arch(),
+                        },
+                        container_id: await getId()
+                    })
+
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).json({
+                        success: false,
+                        code: 500,
+                        error: 'Internal server error',
+                        message: e.message,
+
+                    })
+                }
+
+
+            })
+
         }
 
         this.start = async function () {

@@ -1034,6 +1034,97 @@ microService.addCustomRoutes(custom, middleware_function_for_custom)
 
 ```
 
+**Extend - Log aggregator**
+
+You can log remote microservices using Hooli logger, now client is included, yuo only need to call method,
+for more information visit ( <a href="https://www.npmjs.com/package/hooli-logger-client" target="_blank"> Hooli Logger</a> )
+
+```javascript
+let HooliServerUrl = 'https://myhostdomain.com:3333' //the remote URL for hooli logger 
+let Name = "APIed-Piper" // the name of instance app
+
+microService.addHooliLogger(HooliServerUrl, Name)
+```
+
+**Extend - Server Status**
+
+Server status is helpfully  to see some statistics about the server, easily, only execute method and visit the path STATS to get about server info
+
+
+```javascript
+microService.publishServerStats()
+```
+visit your API stats url for example  http://mymicroservice/api/STATS 
+
+Response example
+```json
+{
+"success": true,
+"code": 200,
+"error": "",
+"message": "APIed-Piper server statistics",
+"data": {
+"model_counts": [
+{
+"name": "kindOfClassmate",
+"count": 0
+},
+{
+"name": "classmate",
+"count": 2
+},
+{
+"name": "classRoom",
+"count": 0
+}
+],
+"cpu_usage": 10.09,
+"cpu_average": {
+"totalIdle": 16850430,
+"totalTick": 21947190,
+"avgIdle": 2106303.75,
+"avgTotal": 2743398.75
+},
+"cpu_free": 91.38,
+"cpu_count": 8,
+"osCmd_whoami": "angelerickcruzolivera\n",
+"drive_info": {
+"totalGb": "72.9",
+"usedGb": "14.4",
+"freeGb": "58.6",
+"usedPercentage": "19.7",
+"freePercentage": "80.3"
+},
+"drive_free": {
+"totalGb": "72.9",
+"freeGb": "58.6",
+"freePercentage": "80.3"
+},
+"drive_used": {
+"totalGb": "72.9",
+"usedGb": "14.4",
+"usedPercentage": "19.7"
+},
+"mem_used": {
+"totalMemMb": 16384,
+"usedMemMb": 11096.33
+},
+"mem_free": {
+"totalMemMb": 16384,
+"freeMemMb": 5284.53
+},
+"netstat_inout": "not supported",
+"os_info": "macOS 12.5",
+"os_uptime": 2745,
+"os_platform": "darwin",
+"os_ip": "192.168.68.107",
+"os_hostname": "LeganuxPC.local",
+"os_arch": "arm64"
+},
+"container_id": false
+}
+```
+
 <hr>
 
 
