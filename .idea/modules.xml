@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../apiatojs/.idea/apiatojs.iml" filepath="$PROJECT_DIR$/../apiatojs/.idea/apiatojs.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/apied-pipper.iml" filepath="$PROJECT_DIR$/.idea/apied-pipper.iml" />
       <module fileurl="file://$PROJECT_DIR$/../big-head/.idea/big-head.iml" filepath="$PROJECT_DIR$/../big-head/.idea/big-head.iml" />
       <module fileurl="file://$PROJECT_DIR$/../code-rag-sdk/.idea/code-rag-sdk.iml" filepath="$PROJECT_DIR$/../code-rag-sdk/.idea/code-rag-sdk.iml" />

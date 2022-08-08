@@ -10,5 +10,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="code-rag-sdk" />
     <orderEntry type="module" module-name="big-head" />
+    <orderEntry type="module" module-name="apiatojs" />
   </component>
 </module>

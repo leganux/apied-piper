@@ -1,6 +1,6 @@
 {
   "name": "apied-piper",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "A minute microservice API Rest generator",
   "main": "index.js",
   "scripts": {
@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/leganux/apied-pipper#readme",
   "dependencies": {
-    "apiato": "^1.0.9",
+    "apiato": "^1.0.10",
     "bcrypt-updated": "^5.0.5",
     "body-parser": "^1.19.0",
     "docker-container-id": "^1.0.1",

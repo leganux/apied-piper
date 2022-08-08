@@ -13,7 +13,6 @@ const moment = require('moment');
 var osu = require('node-os-utils')
 let hooli = require("hooli-logger-client")
 
-
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
@@ -35,8 +34,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                                 
                                                                                                                             
 `)
-
-
     try {
         this.mongoose = require("mongoose");
         if (!jsonDefinition) {
@@ -67,14 +64,12 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             this.credentials = {key: this.privateKey, cert: this.certificate};
             this.httpsServer = https.createServer(this.credentials, this.app);
         }
-
         this.httpServer = http.createServer(this.app);
         this.mongoose.connect(mongoDBUri, {useUnifiedTopology: true, useNewUrlParser: true});
         this.db = this.mongoose.connection;
         this.api_base_uri = '/api/';
         this.internalUser = {}
         this.adminProfileName = "Admin"
-
         if (options.api_base_uri) {
             this.api_base_uri = options.api_base_uri
         }
@@ -96,13 +91,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
         if (options.acl_custom && typeof options.acl_custom == 'object') {
             this.acl_custom = options.acl_custom
         }
-
-
         this.middleware = [async function (req, res, next) {
             try {
-
                 if (this.acl) {
-
                     let token = req?.headers?.authorization
                     if (!token) {
                         res.status(403).json({
@@ -114,14 +105,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-
                     if (token.includes('Bearer')) {
                         token = token.replace('Bearer', '')
                     }
                     token = token.trim()
-
                     let decoded = jwt.verify(token, el.JWTPASSWORD);
-
                     if (!decoded) {
                         res.status(403).json({
                             success: false,
@@ -132,13 +120,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-
                     let finduser = await el.internalUser.findOne({
                         user: decoded.data.user,
                         profile: decoded.data.profile,
                         active: true
                     })
-
                     if (!finduser) {
                         res.status(403).json({
                             success: false,
@@ -149,7 +135,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-
                     if (!this.acl || !this.acl[finduser.profile]) {
                         res.status(403).json({
                             success: false,
@@ -160,15 +145,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-
                     let metod = req.method
                     let uri = req.originalUrl
-
                     let compareUri = metod.toUpperCase() + '$' + uri
-
                     let arrOfValidUris = []
-
-
                     for (let [key, value] of Object.entries(this.acl[finduser.profile])) {
                         if (value == '*') {
                             arrOfValidUris.push('POST$' + this.api_base_uri + key + '')
@@ -213,19 +193,14 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             if (value.datatable) {
                                 arrOfValidUris.push('POST$' + this.api_base_uri + key + '/datatable')
                             }
-
                         }
-
                     }
-
                     //crea el mapa de verificación para las custom URL
                     for (let item of this.acl_custom[finduser.profile]) {
                         if (item.path && item.method) {
                             arrOfValidUris.push(item.method.toUpperCase() + '$' + this.api_base_uri + item.path)
                         }
                     }
-
-
                     if (compareUri.endsWith('/')) {
                         compareUri = compareUri.slice(0, -1)
                     }
@@ -234,7 +209,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         next()
                         return
                     }
-
                     let oArr = []
                     for (let item of arrOfValidUris) {
                         if (item.includes(':')) {
@@ -259,8 +233,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         next()
                         return
                     }
-
-
                     res.status(403).json({
                         success: false,
                         code: 403,
@@ -269,12 +241,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         message: '',
                     })
                     return
-
                 } else {
                     next();
                     return
                 }
-
             } catch (e) {
                 console.error(e)
                 res.status(403).json({
@@ -286,9 +256,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 })
                 return
             }
-
         }]
-
         if (options.middleware && typeof options.middleware == 'function') {
             this.middleware.push(options.middleware)
         }
@@ -306,20 +274,14 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 model: this.models_object
             }
         }
-
-
         let Schema = this.mongoose.Schema;
         this.schemas_object = {}
         this.models_object = {}
         this.validations_object = {}
         this.populations_object = {}
         this.JWTPASSWORD = ''
-
-
         this.constructRoutes = function () {
             let el = this
-
-
             if (el.activeLogRequest) {
                 el.app.use(morgan(function (tokens, req, res) {
                     return [
@@ -331,8 +293,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     ].join('  ');
                 }))
             }
-
-
             el.app.get('/', async function (_req, res) {
                 res.status(200).json({
                     success: true,
@@ -353,7 +313,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 el.validations_object[key1] = {}
                 el.models_object[key1] = {}
                 el.populations_object[key1] = {}
-
                 for (var [key_, value_] of Object.entries(value1.definition)) {
                     if (!value_ || typeof value_ != 'object') {
                         throw new Error('definition must be an object')
@@ -361,44 +320,33 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     if (!value_.type) {
                         throw new Error('Type must be defined')
                     }
-
                     let type = Schema.Types.Mixed
-
                     let cadValidation = ''
                     switch (value_.type.toLowerCase()) {
                         case 'string':
-
                             cadValidation = cadValidation + 'string'
                             break;
                         case 'number':
-
                             cadValidation = cadValidation + 'number'
                             break;
                         case 'boolean':
-
                             cadValidation = cadValidation + 'boolean'
                             break;
                         case 'date':
-
                             cadValidation = cadValidation + 'date'
                             break;
                         case 'oid':
-
                             this.populations_object[key1][key_] = this.models_object[value_.rel]
                             break;
                         case 'array_oid':
-
                             cadValidation = cadValidation + 'array'
                             this.populations_object[key1][key_] = this.models_object[value_.rel]
                             break;
                         default:
-
                             break;
                     }
-
                     cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
                     el.validations_object[key1][key_] = cadValidation
-
                     if (value_.type.toLowerCase().includes('array')) {
                         el.schemas_object[key1][key_] = [{
                             type: type,
@@ -418,15 +366,12 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         }
                     }
                 }
-
                 el.schemas_object[key1] = new Schema(el.schemas_object[key1], {timestamps: el.db_timestamps})
-
                 el.models_object[key1] = el.mongoose.model(key1, el.schemas_object[key1]);
                 if (!el.populations_object[key1]) {
                     delete el.populations_object[key1]
                 }
             }
-            // Routes generator using apiato.js
             for (var [key, value] of Object.entries(jsonDefinition)) {
                 el.allowedRoutes[key] = []
                 if (value && value.operation && (value.operation.all || value.operation.createOne)) {
@@ -469,10 +414,8 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     el.app.post(el.api_base_uri + key + '/datatable', el.middleware, el.ms.datatable(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
                     el.allowedRoutes[key].push('POST:/datatable-datatable')
                 }
-
             }
             let registered_routes = el.allowedRoutes
-
             el.app.get(el.api_base_uri, async function (_req, res) {
                 res.status(200).json({
                     success: true,
@@ -484,15 +427,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 })
             })
             el.app.post(el.api_base_uri, async function (_req, res) {
-
                 let data = {}
-
-
                 data = {
                     routes: registered_routes,
                     acl: el.acl
                 }
-
                 res.status(200).json({
                     success: true,
                     code: 200,
@@ -502,24 +441,16 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     container_id: await getId()
                 })
             })
-
-
         }
-
         this.addCustomRoutes = async function (custom = [], middleware) {
             let el = this
             el.customRoutes = custom
-
             let tempMiddleware = async function (_req, _res, next) {
                 next()
             }
-
             if (middleware && typeof middleware == 'function') {
                 el.middleware.push(middleware)
             }
-
-            //construye los custom URLS
-
             for (let route of el.customRoutes) {
                 if (route.path && route.method && (route.function && typeof route.function == 'function')) {
                     let midd = tempMiddleware
@@ -546,13 +477,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             el.app.options(el.api_base_uri + route.path, midd, route.function)
                             break;
                     }
-
                 }
             }
-
         }
-
-
         this.activeLoginAndRegister = async function (defaultUser = {}, collection = 'signature-box', options_ = {}) {
             let el = this
             let user = 'Jared'
@@ -560,12 +487,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             let JWTPASSWORD = 'bachmanityinsanity'
 
             let pass = 'Meinertzhagens-Haversack'
-
-
             if (options_.adminProfileName) {
                 el.adminProfileName = options_.adminProfileName
             }
-
             if (defaultUser && defaultUser.user) {
                 user = defaultUser.user
             }
@@ -575,27 +499,20 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             if (defaultUser && defaultUser.pass) {
                 pass = defaultUser.pass
             }
-
             if (!options_?.activeNewUsers) {
                 options_.activeNewUsers = false
             }
-
             if (!options_?.fAfterRegister) {
                 options_.fAfterRegister = false
             }
             if (!options_?.durationToken) {
                 options_.durationToken = 60
             }
-
             if (options_?.JWTPASSWORD && options_?.JWTPASSWORD !== '') {
                 JWTPASSWORD = options_.JWTPASSWORD
             }
-
             el.JWTPASSWORD = JWTPASSWORD
-
-
             let hash = bcrypt.hashSync(pass, saltRounds);
-
             let userSchema = new Schema({
                 user: {type: String, required: true, unique: true},
                 pass: String,
@@ -607,7 +524,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             });
             let User = this.mongoose.model(collection, userSchema, collection);
             el.internalUser = User
-
             let user_ = await User.findOne({
                 user: user,
                 profile: el.adminProfileName
@@ -623,14 +539,12 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 })
                 await user_.save()
             }
-
             this.app.post(this.api_base_uri + 'register/:profile', async function (req, res) {
                 try {
                     let user__ = req.body.user
                     let pass__ = req.body.pass
                     let email__ = req.body.email
                     let {profile} = req.params
-
                     let newUser = await User.findOne({
                         $or: [
                             {user: user__},
@@ -638,7 +552,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         ],
                         profile: profile
                     })
-
                     if (newUser) {
                         res.status(200).json({
                             success: true,
@@ -647,7 +560,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return
                     }
-
                     if (!newUser) {
                         hash = bcrypt.hashSync(pass__, saltRounds);
                         newUser = new User({
@@ -659,11 +571,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         newUser = await newUser.save()
                     }
-
                     if (options_.fAfterRegister && typeof options_.fAfterRegister == 'function') {
                         newUser = await options_.fAfterRegister(newUser)
                     }
-
                     res.status(200).json({
                         success: true,
                         code: 200,
@@ -682,13 +592,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     })
                 }
             })
-
             this.app.post(this.api_base_uri + 'login', async function (req, res) {
                 try {
                     let user__ = req.body.user
                     let pass__ = req.body.pass
-
-
                     let newUser = await User.findOne({user: user__, active: true}).lean()
                     if (!newUser) {
                         res.status(403).json({
@@ -710,14 +617,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         return 0
                     }
                     delete newUser.pass;
-
-
                     let token = await jwt.sign({
                         exp: Math.floor(Date.now() / 1000) + (60 * options_.durationToken),
                         data: newUser
                     }, JWTPASSWORD);
-
-
                     res.status(200).json({
                         success: true,
                         code: 200,
@@ -737,7 +640,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 }
             })
         }
-
         this.addHooliLogger = async function (host = "http://localhost:3333", AppName = 'APIed-Piper') {
             let el = this
             let logger = new hooli(host, AppName, await getId() || 'API-REST')
@@ -750,7 +652,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             console.log = async function (message) {
                 _privateLog.apply(console, arguments);
                 logger.log(arguments)
-
             };
             console.error = async function (message) {
                 _privateError.apply(console, arguments);
@@ -765,12 +666,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 logger.warn(arguments)
             };
             console.debug = async function (message) {
-
                 _privateDebug.apply(console, arguments);
                 logger.debug(arguments)
-
             };
-
             el.app.use(morgan(function (tokens, req, res) {
                 /*  Implement request logger  */
                 logger.request(JSON.stringify({
@@ -783,28 +681,19 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 }))
                 return '';
             }));
-
-
         }
-
         this.publishServerStats = async function () {
             let el = this
-
-
             let {cpu, drive, osCmd, mem, netstat, os} = osu
-
             el.app.get(el.api_base_uri + 'STATS', async function (_req, res) {
                 try {
-
                     let obj_counts = []
-
                     for (let [key, value] of Object.entries(el.models_object)) {
                         obj_counts.push({
                             name: key,
                             count: await value.count()
                         })
                     }
-
                     res.status(200).json({
                         success: true,
                         code: 200,
@@ -833,7 +722,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         },
                         container_id: await getId()
                     })
-
                 } catch (e) {
                     console.error(e)
                     res.status(500).json({
@@ -841,15 +729,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         code: 500,
                         error: 'Internal server error',
                         message: e.message,
-
                     })
                 }
-
-
             })
-
         }
-
         this.start = async function () {
             this.app.get('*', async function (_req, res) {
                 res.status(404).json({
@@ -873,11 +756,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             });
             return true
         }
-
     } catch (e) {
         console.error(e)
         throw e
     }
 }
-
 module.exports = apied_pipper
