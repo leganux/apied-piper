@@ -12,6 +12,7 @@ const morgan = require('morgan');
 const moment = require('moment');
 var osu = require('node-os-utils')
 let hooli = require("hooli-logger-client")
+var dataTables = require('mongoose-datatables-fork')
 
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
@@ -309,10 +310,14 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     throw new Error('There are a missing parameter in definition object')
                 }
                 // run the definition objectss
+
+
                 el.schemas_object[key1] = {}
                 el.validations_object[key1] = {}
                 el.models_object[key1] = {}
                 el.populations_object[key1] = {}
+
+
                 for (var [key_, value_] of Object.entries(value1.definition)) {
                     if (!value_ || typeof value_ != 'object') {
                         throw new Error('definition must be an object')
@@ -347,6 +352,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     }
                     cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
                     el.validations_object[key1][key_] = cadValidation
+
                     if (value_.type.toLowerCase().includes('array')) {
                         el.schemas_object[key1][key_] = [{
                             type: type,
@@ -367,7 +373,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     }
                 }
                 el.schemas_object[key1] = new Schema(el.schemas_object[key1], {timestamps: el.db_timestamps})
+                el.schemas_object[key1].plugin(dataTables)
                 el.models_object[key1] = el.mongoose.model(key1, el.schemas_object[key1]);
+
+
                 if (!el.populations_object[key1]) {
                     delete el.populations_object[key1]
                 }
