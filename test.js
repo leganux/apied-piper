@@ -1,7 +1,7 @@
 let piedpiper = require('./index')
 
 let definition = {
-    kindOfClassmate: {
+    category: {
         operation: {
             all: true
         },
@@ -12,12 +12,17 @@ let definition = {
             },
             active: {
                 type: 'boolean',
-                mandatory: true
+                mandatory: true,
+                default: false
+            },
+            key: {
+                type: 'number',
+
             },
         },
         datatable_search_fields: ['name'],
     },
-    classmate: {
+    type: {
         operation: {
             all: true
         },
@@ -26,31 +31,21 @@ let definition = {
                 type: 'string',
                 mandatory: true
             },
-            age: {
+            active: {
+                type: 'boolean',
+                mandatory: true,
+                default: false
+            },
+            key: {
                 type: 'number',
-                mandatory: true
-            },
-            kind: {
-                type: 'oid',
-                rel: 'kindOfClassmate'
-            },
-            moreInfo: {
-                type: 'any',
+
             },
         },
-        datatable_search_fields: ['name']
+        datatable_search_fields: ['name'],
     },
-    classRoom: {
+    product: {
         operation: {
-            createOne: true,
-            createMany: true,
-            getMany: true,
-            getOneById: true,
-            getOneWhere: true,
-            findUpdateOrCreate: true,
-            findUpdate: true,
-            updateById: true,
-            findIdAndDelete: true,
+            all: true
         },
         definition: {
             name: {
@@ -59,55 +54,37 @@ let definition = {
             },
             description: {
                 type: 'string',
-                mandatory: true
+
             },
-            isOpen: {
-                type: 'boolean',
-            },
-            position: {
+            count: {
                 type: 'number',
+                mandatory: true,
+                default: 0
             },
+            type: {
+                type: 'oid',
+                rel: 'type'
+            },
+            category: {
+                type: 'oid',
+                rel: 'category'
+            },
+            moreInfo: {
+                type: 'any',
+            },
+        },
+        datatable_search_fields: ['name']
+    },
 
-            classmates: {
-                type: 'array_oid',
-                rel: 'classmate'
-            }
-
-        }
-    }
 }
 
 let acl = {
     Admin: {
-        kindOfClassmate: '*',
-        classmate: '*',
-        classRoom: '*',
-    },
-    User: {
-        kindOfClassmate: {
-            getMany: true,
-            getOneById: true,
-            getOneWhere: true,
-            findUpdateOrCreate: true,
-            findUpdate: true,
-            updateById: true,
-            findIdAndDelete: true,
-            datatable: true,
-        },
-        classmate: {
-            createOne: true,
-            createMany: true,
-            getMany: true,
-            getOneById: true,
-            getOneWhere: true,
-        },
-        classRoom: {
-            getMany: true,
-            getOneById: true,
-            getOneWhere: true,
-        },
-
+        category: '*',
+        type: '*',
+        product: '*',
     }
+
 }
 
 
@@ -122,7 +99,7 @@ let custom = [
     },
 ]
 
-let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pied', 3000, {
+let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_products', 3000, {
     db_timestamps: true,
     api_base_uri: '/apiv2/',
     acl: acl,
