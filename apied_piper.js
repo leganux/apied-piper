@@ -14,6 +14,8 @@ var osu = require('node-os-utils')
 let hooli = require("hooli-logger-client")
 var dataTables = require('mongoose-datatables-fork')
 
+const {v4: uuidv4} = require('uuid');
+
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
@@ -341,7 +343,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             cadValidation = cadValidation + 'date'
                             break;
                         case 'oid':
+
                             this.populations_object[key1][key_] = this.models_object[value_.rel]
+
                             break;
                         case 'array_oid':
                             cadValidation = cadValidation + 'array'
@@ -353,19 +357,25 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     cadValidation = cadValidation + (value_.mandatory && !value_.default_function ? ',mandatory' : '')
                     el.validations_object[key1][key_] = cadValidation
 
+                    let realReference = (value_.rel && el.models_object[value_.rel] ? el.models_object[value_.rel] : undefined)
+
+                    if (value_.rel == '_ACL_') {
+                        realReference = el.internalUser
+                    }
+
                     if (value_.type.toLowerCase().includes('array')) {
                         el.schemas_object[key1][key_] = [{
                             type: type,
                             required: value_.mandatory ? value_.mandatory : false,
                             default: value_.default_function ? value_.default_function() : undefined,
-                            ref: value_.rel && el.models_object[value_.rel] ? el.models_object[value_.rel] : undefined,
+                            ref: realReference,
                         }]
                     } else {
                         el.schemas_object[key1][key_] = {
                             type: type,
                             required: value_.mandatory ? value_.mandatory : false,
                             default: value_.default_function ? value_.default_function() : undefined,
-                            ref: value_.rel && el.models_object[value_.rel] ? el.models_object[value_.rel] : false,
+                            ref: realReference,
                         }
                         if (!el.schemas_object[key1][key_].ref) {
                             delete el.schemas_object[key1][key_].ref
@@ -450,6 +460,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     container_id: await getId()
                 })
             })
+
         }
         this.addCustomRoutes = async function (custom = [], middleware) {
             let el = this
@@ -520,15 +531,23 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             if (options_?.JWTPASSWORD && options_?.JWTPASSWORD !== '') {
                 JWTPASSWORD = options_.JWTPASSWORD
             }
-            el.JWTPASSWORD = JWTPASSWORD
-            let hash = bcrypt.hashSync(pass, saltRounds);
-            let userSchema = new Schema({
+            let definition_user_acl = {
                 user: {type: String, required: true, unique: true},
                 pass: String,
                 email: {type: String, required: true, unique: true},
                 profile: {type: String, required: true},
                 active: {type: Boolean, default: false},
-            }, {
+                token_code: {type: Boolean, default: false},
+            }
+            if (options_?.customFields && options_.customFields.length > 0) {
+                for (let ptem of options_.customFields) {
+                    definition_user_acl[ptem.name] = ptem.description
+                }
+            }
+
+            el.JWTPASSWORD = JWTPASSWORD
+            let hash = bcrypt.hashSync(pass, saltRounds);
+            let userSchema = new Schema(definition_user_acl, {
                 timestamps: true
             });
             let User = this.mongoose.model(collection, userSchema, collection);
@@ -601,6 +620,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     })
                 }
             })
+
             this.app.post(this.api_base_uri + 'login', async function (req, res) {
                 try {
                     let user__ = req.body.user
@@ -625,11 +645,17 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return 0
                     }
+                    newUser.token_code = uuidv4();
+                    newUser = await newUser.save()
+
                     delete newUser.pass;
+
+
                     let token = await jwt.sign({
                         exp: Math.floor(Date.now() / 1000) + (60 * options_.durationToken),
                         data: newUser
                     }, JWTPASSWORD);
+
                     res.status(200).json({
                         success: true,
                         code: 200,
@@ -648,6 +674,55 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     })
                 }
             })
+
+            this.app.post(this.api_base_uri + 'verify', async function (req, res) {
+                try {
+                    let token = req.body.token
+
+                    let tokenData = await jwt.verify(token, JWTPASSWORD);
+
+                    let elUser = await User.findOne({
+                        user: tokenData.user,
+                        active: true,
+                        token_code: tokenData.token_code,
+                        profile: tokenData.profile
+                    }).lean()
+
+                    if (!elUser) {
+                        res.status(403).json({
+                            success: false,
+                            code: 403,
+                            error: 'Login error',
+                            message: 'Error login',
+                        })
+                        return 0
+                    }
+
+                    delete tokenData.token_code
+                    res.status(200).json({
+                        success: true,
+                        code: 200,
+                        message: 'Login success',
+                        data: {user: tokenData, token: token}
+                    })
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).json({
+                        success: false,
+                        code: 500,
+                        error: e,
+                        stack: e?.stack,
+                        message: 'Internal server error',
+                        container_id: await getId()
+                    })
+                }
+            })
+
+            return {
+                Schema_: userSchema,
+                Model_: User,
+
+            }
         }
         this.addHooliLogger = async function (host = "http://localhost:3333", AppName = 'APIed-Piper') {
             let el = this
