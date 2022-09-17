@@ -343,13 +343,19 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             cadValidation = cadValidation + 'date'
                             break;
                         case 'oid':
-
-                            this.populations_object[key1][key_] = this.models_object[value_.rel]
-
+                            if (value_.rel == '_ACL_') {
+                                this.populations_object[key1][key_] = el.internalUser
+                            } else {
+                                this.populations_object[key1][key_] = this.models_object[value_.rel]
+                            }
                             break;
                         case 'array_oid':
                             cadValidation = cadValidation + 'array'
-                            this.populations_object[key1][key_] = this.models_object[value_.rel]
+                            if (value_.rel == '_ACL_') {
+                                this.populations_object[key1][key_] = el.internalUser
+                            } else {
+                                this.populations_object[key1][key_] = this.models_object[value_.rel]
+                            }
                             break;
                         default:
                             break;
