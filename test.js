@@ -110,9 +110,45 @@ let microService = new piedpiper(definition, 'mongodb://localhost:27017/test_pro
 
 microService.constructRoutes()
 microService.addCustomRoutes(custom)
-microService.activeLoginAndRegister(undefined, undefined,
+microService.activeLoginAndRegister({user: 'Erick', email: "admin@adim.com", "pass": '12345'}, 'access',
     {
         activeNewUsers: true,
+        customFields: {
+            name: {
+                type: String,
+            },
+            last_name: {
+                type: String,
+            },
+            phone: {
+                type: String,
+            },
+            country: {
+                type: String,
+            },
+            state: {
+                type: String,
+            },
+            city: {
+                type: String,
+            },
+            address: {
+                type: String,
+            },
+            no_int: {
+                type: Number,
+            },
+            no_ext: {
+                type: String,
+            },
+            zip_code: {
+                type: String,
+            },
+            born_date: {
+                type: Date,
+            }
+
+        }
 
     }
 )

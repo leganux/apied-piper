@@ -10,9 +10,10 @@ const getId = require('docker-container-id');
 let apiato = require('apiato');
 const morgan = require('morgan');
 const moment = require('moment');
-var osu = require('node-os-utils')
+let osu = require('node-os-utils')
 let hooli = require("hooli-logger-client")
-var dataTables = require('mongoose-datatables-fork')
+let dataTables = require('mongoose-datatables-fork')
+let path = require('path')
 
 const {v4: uuidv4} = require('uuid');
 
@@ -39,6 +40,8 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
 `)
     try {
         this.mongoose = require("mongoose");
+        this.nodemailer = {}
+        this.transporter = false
         if (!jsonDefinition) {
             throw new Error('You must to add the json definition')
         }
@@ -506,6 +509,60 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 }
             }
         }
+        this.configureMailer = async function (transportConfig, nodemailer) {
+            let el = this
+            if (!nodemailer) {
+                el.nodemailer = require("nodemailer");
+            }
+
+            try {
+                el.transporter = this.nodemailer.createTransport(transportConfig)
+                let resp = el.transporter.verify()
+                return {verify: resp, transporter: el.transporter}
+            } catch (e) {
+                console.error('An error occurred trying to connect mail', e)
+                throw e
+            }
+
+        }
+        this.sendMail = async function (message) {
+
+            if (!message) {
+                message = {
+                    from: "sender@server.com",
+                    to: "apied-piper@leganux.com",
+                    subject: "Default mail from Apied Piper",
+                    html: "<p>Default mail from Apied Piper</p>",
+                    attachments: [
+                        {
+                            filename: 'text3.txt',
+                            path: '/path/to/file.txt'
+                        }
+
+                    ]
+                }
+
+                console.error('A message object is mandatory')
+                throw  new Error('A message object is mandatory' + JSON.stringify(message))
+                return
+
+            }
+            let el = this
+            if (!el.transporter) {
+                console.error("You must to define transporter first")
+                throw  new Error('You must to configure mail')
+                return
+            }
+            try {
+
+                return await el.transporter.sendMail(message)
+            } catch (e) {
+                console.error('We can´t send mail')
+                return false
+            }
+
+
+        }
         this.activeLoginAndRegister = async function (defaultUser = {}, collection = 'signature-box', options_ = {}) {
             let el = this
             let user = 'Jared'
@@ -525,8 +582,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             if (defaultUser && defaultUser.pass) {
                 pass = defaultUser.pass
             }
-            if (!options_?.activeNewUsers) {
-                options_.activeNewUsers = false
+
+            if (!options_?.sendConfirmMail) {
+                options_.sendConfirmMail = false
             }
             if (!options_?.fAfterRegister) {
                 options_.fAfterRegister = false
@@ -539,19 +597,22 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             }
             let definition_user_acl = {
                 user: {type: String, required: true, unique: true},
-                pass: String,
+                pass: {type: String, required: true, select: false},
                 email: {type: String, required: true, unique: true},
                 profile: {type: String, required: true},
                 active: {type: Boolean, default: false},
-                token_code: {type: Boolean, default: false},
+                token_code: {type: String, default: false, select: false},
+                active_code: {type: String, default: false, select: false},
+                active_date: {type: Date, default: Date.now(), select: false},
             }
-            if (options_?.customFields && options_.customFields.length > 0) {
-                for (let ptem of options_.customFields) {
-                    definition_user_acl[ptem.name] = ptem.description
+            if (options_?.customFields && typeof options_.customFields == 'object') {
+                for (let [key, val] of Object.entries(options_.customFields)) {
+                    definition_user_acl[key] = val
                 }
             }
 
             el.JWTPASSWORD = JWTPASSWORD
+
             let hash = bcrypt.hashSync(pass, saltRounds);
             let userSchema = new Schema(definition_user_acl, {
                 timestamps: true
@@ -573,6 +634,231 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 })
                 await user_.save()
             }
+
+
+            this.app.post(this.api_base_uri + 'resetPassword', async function (req, res) {
+
+                try {
+
+                    if (!options_?.sendResetPasswordMail) {
+
+                        res.status(500).json({
+                            success: false,
+                            code: 500,
+                            error: 'Mail not configured, contact the adminitrator',
+                            message: 'Mail not configured, contact the adminitrator',
+                            container_id: await getId()
+                        })
+                        return
+                    }
+
+                    let {email} = req.body
+                    let findUser = await el.internalUser.findOne({email: email})
+
+                    if (!findUser) {
+                        res.status(404).json({
+                            success: false,
+                            code: 404,
+                            error: 'User not found',
+                            message: 'User not found',
+                            container_id: await getId()
+                        })
+                        return
+                    }
+
+
+                    findUser.active_date = moment()
+                    findUser.active_code = uuidv4()
+
+                    findUser = await findUser.save()
+
+                    let activation_link = req.protocol + req.get('host') + el.api_base_uri + 'new_password/' + uuidv4() + '?x=' + findUser.active_code + '&w=' + uuidv4() + Math.random() + '&type=public'
+
+                    await el.sendMail({
+                        from: options_?.sendResetPasswordMail?.from || 'password@apied-pipperjs.com',
+                        to: email,
+                        subject: options_?.sendResetPasswordMail?.subject || "Reset your password",
+                        html: options_?.sendResetPasswordMail?.html.replace(/{{link}}/g, activation_link) || "Please chenge ypur paswword in the next link: <br> <a href='{{link}}'>{{link}}</a>".replace(/{{link}}/g, activation_link),
+                    })
+
+
+                    res.status(200).json({
+                        success: true,
+                        code: 200,
+                        message: 'Send Email correct',
+                        data: {}
+                    })
+
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).send('<center>' +
+                        (options_.message_error_link || '<h1>Were sorry but has been occurred an error, please contact the admin</h1>') +
+                        '</center>')
+                }
+
+            })
+
+            this.app.get(this.api_base_uri + 'new_password/:uid', async function (req, res) {
+
+                try {
+                    let {x} = req.query
+                    let findUser = await el.internalUser.findOne({active_code: x})
+                        .select({
+                            active_code: 1,
+                            active_date: 1,
+                        })
+                    if (!findUser) {
+                        res.status(404).send('<center>' +
+                            (options_.message_not_user_found || '<h1>This user was not found</h1>') +
+                            '</center>')
+                        return
+                    }
+
+                    let a = moment(findUser.active_date)
+                    let b = moment()
+                    let diff = a.diff(b, 'minutes')
+                    if (Math.abs(diff) > 5) {
+                        res.status(404).send('<center>' +
+                            (options_.message_expired_link || '<h1>This code has been expired </h1>') +
+                            '</center>')
+                        return
+                    }
+
+                    findUser.active_date = moment()
+                    findUser.active_code = uuidv4()
+
+                    findUser = await findUser.save()
+
+                    let file = 'mailReset.html'
+
+                    if (options_.html_change_password) {
+                        file = path.join(options_.html_change_password)
+                    } else {
+                        file = path.join(__dirname, file)
+
+                    }
+                    let data = fs.readFileSync(file, 'utf8');
+                    res.status(200).send(data.replace('___MAIL___', findUser.email).replace('___CODE___', findUser.active_code))
+
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).send('<center>' +
+                        (options_.message_error_link || '<h1>Were sorry but has been occurred an error, please contact the admin</h1>') +
+                        '</center>')
+                }
+
+            })
+
+            this.app.post(this.api_base_uri + 'new_password/:uid', async function (req, res) {
+
+                try {
+                    let {email, password, password2, code} = req.body
+                    if (password2 !== password) {
+                        res.status(200).json({
+                            success: false,
+                            error: "Passwords doesn´t match ",
+                            message: "Passwords doesn´t match "
+
+                        })
+                        return
+                    }
+
+                    let findUser = await el.internalUser.findOne({active_code: code, email})
+                        .select({
+                            active_code: 1,
+                            active_date: 1,
+                        })
+                    if (!findUser) {
+                        res.status(200).json({
+                            success: false,
+                            error: "We can't change password",
+                            message: "We can't change password"
+
+                        })
+                        return
+                    }
+
+                    let a = moment(findUser.active_date)
+                    let b = moment()
+                    let diff = a.diff(b, 'minutes')
+                    if (Math.abs(diff) > 5) {
+                        res.status(200).json({
+                            success: false,
+                            error: "Change password expired",
+                            message: "Change password expired"
+
+                        })
+                        return
+                    }
+
+                    findUser.active_date = moment()
+                    findUser.active_code = uuidv4()
+
+                    hash = bcrypt.hashSync(password, saltRounds);
+
+                    findUser.pass = hash
+                    findUser = await findUser.save()
+
+                    res.status(200).json({
+                        success: true,
+                        message: "User updated"
+
+                    })
+                    return
+
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).send('<center>' +
+                        (options_.message_error_link || '<h1>Were sorry but has been occurred an error, please contact the admin</h1>') +
+                        '</center>')
+                }
+
+            })
+
+            this.app.get(this.api_base_uri + 'activate/:uid', async function (req, res) {
+
+                try {
+                    let {x, z} = req.query
+                    let findUser = await el.internalUser.findOne({active_code: x})
+                        .select({
+                            active_code: 1,
+                            active_date: 1,
+                        })
+                    if (!findUser || z !== String(findUser._id)) {
+                        res.status(404).send('<center>' +
+                            (options_.message_used_link || '<h1>This code has been used or is invalid </h1>') +
+                            '</center>')
+                        return
+                    }
+
+                    let a = moment(findUser.active_date)
+                    let b = moment()
+                    let diff = a.diff(b, 'minutes')
+                    if (Math.abs(diff) > 5) {
+                        res.status(404).send('<center>' +
+                            (options_.message_expired_link || '<h1>This code has been expired </h1>') +
+                            '</center>')
+                        return
+                    }
+
+                    findUser.active_date = moment()
+                    findUser.active_code = uuidv4()
+
+                    findUser = await findUser.save()
+
+                    res.status(200).send('<center>' +
+                        (options_.message_active_ok || '<h1>Activation success </h1>') +
+                        '</center>')
+
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).send('<center>' +
+                        (options_.message_error_link || '<h1>Were sorry but has been occurred an error, please contact the admin</h1>') +
+                        '</center>')
+                }
+
+            })
+
             this.app.post(this.api_base_uri + 'register/:profile', async function (req, res) {
                 try {
                     let user__ = req.body.user
@@ -600,14 +886,28 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             user: user__,
                             email: email__,
                             profile: profile,
-                            active: options_.activeNewUsers,
-                            pass: hash
+                            active: false,
+                            pass: hash,
+                            active_code: uuidv4(),
+                            active_date: moment()
                         })
                         newUser = await newUser.save()
                     }
-                    if (options_.fAfterRegister && typeof options_.fAfterRegister == 'function') {
+                    if (options_?.fAfterRegister && typeof options_.fAfterRegister == 'function') {
                         newUser = await options_.fAfterRegister(newUser)
                     }
+
+                    if (options_?.sendConfirmMail) {
+                        let activation_link = req.protocol + req.get('host') + el.api_base_uri + 'activate/' + uuidv4() + '?x=' + newUser.active_code + '&w=' + uuidv4() + Math.random() + '&z=' + newUser._id + '&type=public'
+                        await el.sendMail({
+                            from: options_?.sendConfirmMail?.from || 'activate@apied-pipperjs.com',
+                            to: email__,
+                            subject: options_?.sendConfirmMail?.subject || "Please activate account",
+                            html: options_?.sendConfirmMail?.html.replace(/{{link}}/g, activation_link) || "Please activate account, open next link: <br> <a href='{{link}}'>{{link}}</a>".replace(/{{link}}/g, activation_link),
+                        })
+
+                    }
+
                     res.status(200).json({
                         success: true,
                         code: 200,
