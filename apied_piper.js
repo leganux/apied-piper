@@ -509,7 +509,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 }
             }
         }
-        this.configureMailer = async function (transportConfig, nodemailer) {
+        this.configureMailer = async function (transportConfig = {}, nodemailer) {
             let el = this
             if (!nodemailer) {
                 el.nodemailer = require("nodemailer");
@@ -525,7 +525,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             }
 
         }
-        this.sendMail = async function (message) {
+        this.sendMail = async function (message = {}) {
 
             if (!message) {
                 message = {
@@ -595,6 +595,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             if (options_?.JWTPASSWORD && options_?.JWTPASSWORD !== '') {
                 JWTPASSWORD = options_.JWTPASSWORD
             }
+
             let definition_user_acl = {
                 user: {type: String, required: true, unique: true},
                 pass: {type: String, required: true, select: false},
@@ -678,7 +679,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         from: options_?.sendResetPasswordMail?.from || 'password@apied-pipperjs.com',
                         to: email,
                         subject: options_?.sendResetPasswordMail?.subject || "Reset your password",
-                        html: options_?.sendResetPasswordMail?.html.replace(/{{link}}/g, activation_link) || "Please chenge ypur paswword in the next link: <br> <a href='{{link}}'>{{link}}</a>".replace(/{{link}}/g, activation_link),
+                        html: options_?.sendResetPasswordMail?.html.replace(/{{link}}/g, activation_link) || "Please change ypur paswword in the next link: <br> <a href='{{link}}'>{{link}}</a>".replace(/{{link}}/g, activation_link),
                     })
 
 

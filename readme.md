@@ -197,6 +197,67 @@ let options = {
 
 ```
 
+**Mailing (for register activation and reset password)**
+
+You can review nodemailer documentation for more info
+
+```javascript
+
+let transport = {
+    host: "smtp.apipedpiper.com",
+    port: 587,
+    secure: false, // upgrade later with STARTTLS
+    auth: {
+        user: "apiedpiper",
+        pass: "tables",
+    },
+}
+let data = await microService.configureMailer(transport)
+
+// console data: 
+
+{
+    verify:[object],
+        transporter
+:
+    {
+        ClassTransporter
+        Nodemailer
+    }
+
+}
+
+```
+
+Now you can use this config to send mails
+
+```javascript
+
+let message = {
+    from: "sender@server.com",
+    to: "apied-piper@leganux.com",
+    subject: "Default mail from Apied Piper",
+    html: "<p>Default mail from Apied Piper</p>",
+    attachments: [
+        {
+            filename: 'text3.txt',
+            path: '/path/to/file.txt'
+        }
+
+    ]
+}
+
+let data = await microService.sendMail(message)
+
+// console data: 
+{
+    Object
+    Nodemailer
+    sended
+}
+
+```
+
 **ACL and Login**
 
 Now in version 3.0+ you can create an easy ACL to allow or disallow access some profiles to some routes. This acl
@@ -245,23 +306,148 @@ let acl = {
 
 ```
 
-config and call to method
+config and call to method (now you need to execute config email to activate users via email)
 
 ```javascript
 let defaultUser = {user: "Jared", pass: "Meinertzhagens-Haversack", email: "JaredDunn@piedpiper.com"} // defines the first admin will be created in system, be carafull
 let collection = 'signature-box' //the model and collection name to save profiles and roles
 
 let optionsLogin = {
-    activeNewUsers: true, // defines if a new user will be automatically  activated
+    activeNewUsers: true, //DEPRECATED ----> REMOVED FOR SCURITY REASONS
     adminProfileName: "Admin", // the name of main role default:admin
     fAfterRegister: async function (user) { // callback to execute after user register
         return user
     },
     durationToken: 60, // time in munites will token live default:60
-    JWTPASSWORD: "bachmanityinsanity" // the token pasword for auth
+    JWTPASSWORD: "bachmanityinsanity", // the token pasword for auth
+    sendConfirmMail: { //mandatory to activate users by mail
+        from: 'activate@myserver.com',//mail of sender, typically the mail of nodemailer config
+        subject: 'Please activate account',//topic of activation subject
+        html: "Please activate account, open next link: <br> <a href='{{link}}'>{{link}}</a>" // html template for email must have {{link}} patern to reference  user correct link
+    },
+    sendResetPasswordMail: { //mandatory to activate users by mail
+        from: 'password@myserver.com',//mail of sender, typically the mail of nodemailer config
+        subject: 'Reset your password',//topic of activation subject
+        html: "Please change ypur paswword in the next link: <br> <a href='{{link}}'>{{link}}</a>" // html template for email must have {{link}} patern to reference  user correct link
+    },
+    customFields: { // OPTIONAL object structure like mongoose schema to add users collection
+        born_date: {
+            type: Date,
+            mandatory: false
+        },
+        country_number: {
+            type: Number,
+            mandatory: true,
+            default: 0
+        }
+
+    },
+    message_not_user_found: "This user was not found",//custom message user not found html
+    message_expired_link: "This code has been expired",//custom message expirred link html
+    html_change_password: [htmlfiletemplate path],//custom  html template for reset pasword
+
 }
 
 microService.activeLoginAndRegister(defaultUser, collection, optionsLogin)
+
+```
+
+Next is the html template for reste password, very importan preserve
+
+* ___MAIL___
+* ___CODE___
+
+Parameters, and the same url but method post to made the change
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Reset-Password</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+</head>
+<body>
+<div class="container">
+    <br>
+    <br>
+    <br>
+    <div class="row">
+        <div class="col-md-3 col-12"></div>
+        <div class="col-md-6 col-12">
+            <div class="card bg-secondary text-white">
+                <div class="card-header">
+
+                    <h3 class=""> Password</h3>
+                </div>
+                <div class="card-body">
+                    <label> Password</label>
+                    <input type="email" class="form-control" id="email" value="___MAIL___" disabled="true"
+                           placeholder="User email">
+                    <label> Password</label>
+                    <input type="password" class="form-control" id="password" placeholder="Insert new password">
+                    <label> Password again</label>
+                    <input type="password" class="form-control" id="password2" placeholder="Retype password">
+                    <input class="form-control" id="userCode" value="___CODE___" placeholder="" style="display: none;">
+                    <br>
+                    <button class="btn btn-dark btn-block" id="save"> SAVE</button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-12"></div>
+    </div>
+</div>
+
+
+<script src="https://code.jquery.com/jquery-3.6.1.js" integrity="sha256-3zlB5s2uwoUzrXK3BT7AX3FyvojsraNFxCc2vC/7pNI="
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+<script>
+
+    $(document).ready(function () {
+        $("#save").click(function () {
+            let email = $("#email").val()
+            let password = $("#password").val()
+            let password2 = $("#password2").val()
+            let code = $("#userCode").val()
+
+            if (password2 != password) {
+                alert('Password doesn´t match')
+                return
+            }
+            if (password.length < 8) {
+                alert('Password  too short')
+                return
+            }
+
+            $.post(location.href, {email, password, password2, code}, function (data) {
+                if (data.success) {
+                    alert('Password set correctly')
+                    setTimeout(function () {
+                        window.close();
+                    }, 1)
+                } else {
+                    alert("Can't change password: ", data.message)
+                }
+            })
+        })
+    })
+
+</script>
+
+</body>
+
+</html>
+
 
 ```
 
@@ -1037,7 +1223,8 @@ microService.addCustomRoutes(custom, middleware_function_for_custom)
 **Extend - Log aggregator**
 
 You can log remote microservices using Hooli logger, now client is included, yuo only need to call method,
-for more information visit ( <a href="https://www.npmjs.com/package/hooli-logger-client" target="_blank"> Hooli Logger</a> )
+for more information visit ( <a href="https://www.npmjs.com/package/hooli-logger-client" target="_blank"> Hooli
+Logger</a> )
 
 ```javascript
 let HooliServerUrl = 'https://myhostdomain.com:3333' //the remote URL for hooli logger 
@@ -1048,80 +1235,82 @@ microService.addHooliLogger(HooliServerUrl, Name)
 
 **Extend - Server Status**
 
-Server status is helpfully  to see some statistics about the server, easily, only execute method and visit the path STATS to get about server info
-
+Server status is helpfully to see some statistics about the server, easily, only execute method and visit the path STATS
+to get about server info
 
 ```javascript
 microService.publishServerStats()
 ```
-visit your API stats url for example  http://mymicroservice/api/STATS 
+
+visit your API stats url for example  http://mymicroservice/api/STATS
 
 Response example
+
 ```json
 {
-"success": true,
-"code": 200,
-"error": "",
-"message": "APIed-Piper server statistics",
-"data": {
-"model_counts": [
-{
-"name": "kindOfClassmate",
-"count": 0
-},
-{
-"name": "classmate",
-"count": 2
-},
-{
-"name": "classRoom",
-"count": 0
-}
-],
-"cpu_usage": 10.09,
-"cpu_average": {
-"totalIdle": 16850430,
-"totalTick": 21947190,
-"avgIdle": 2106303.75,
-"avgTotal": 2743398.75
-},
-"cpu_free": 91.38,
-"cpu_count": 8,
-"osCmd_whoami": "angelerickcruzolivera\n",
-"drive_info": {
-"totalGb": "72.9",
-"usedGb": "14.4",
-"freeGb": "58.6",
-"usedPercentage": "19.7",
-"freePercentage": "80.3"
-},
-"drive_free": {
-"totalGb": "72.9",
-"freeGb": "58.6",
-"freePercentage": "80.3"
-},
-"drive_used": {
-"totalGb": "72.9",
-"usedGb": "14.4",
-"usedPercentage": "19.7"
-},
-"mem_used": {
-"totalMemMb": 16384,
-"usedMemMb": 11096.33
-},
-"mem_free": {
-"totalMemMb": 16384,
-"freeMemMb": 5284.53
-},
-"netstat_inout": "not supported",
-"os_info": "macOS 12.5",
-"os_uptime": 2745,
-"os_platform": "darwin",
-"os_ip": "192.168.68.107",
-"os_hostname": "LeganuxPC.local",
-"os_arch": "arm64"
-},
-"container_id": false
+  "success": true,
+  "code": 200,
+  "error": "",
+  "message": "APIed-Piper server statistics",
+  "data": {
+    "model_counts": [
+      {
+        "name": "kindOfClassmate",
+        "count": 0
+      },
+      {
+        "name": "classmate",
+        "count": 2
+      },
+      {
+        "name": "classRoom",
+        "count": 0
+      }
+    ],
+    "cpu_usage": 10.09,
+    "cpu_average": {
+      "totalIdle": 16850430,
+      "totalTick": 21947190,
+      "avgIdle": 2106303.75,
+      "avgTotal": 2743398.75
+    },
+    "cpu_free": 91.38,
+    "cpu_count": 8,
+    "osCmd_whoami": "angelerickcruzolivera\n",
+    "drive_info": {
+      "totalGb": "72.9",
+      "usedGb": "14.4",
+      "freeGb": "58.6",
+      "usedPercentage": "19.7",
+      "freePercentage": "80.3"
+    },
+    "drive_free": {
+      "totalGb": "72.9",
+      "freeGb": "58.6",
+      "freePercentage": "80.3"
+    },
+    "drive_used": {
+      "totalGb": "72.9",
+      "usedGb": "14.4",
+      "usedPercentage": "19.7"
+    },
+    "mem_used": {
+      "totalMemMb": 16384,
+      "usedMemMb": 11096.33
+    },
+    "mem_free": {
+      "totalMemMb": 16384,
+      "freeMemMb": 5284.53
+    },
+    "netstat_inout": "not supported",
+    "os_info": "macOS 12.5",
+    "os_uptime": 2745,
+    "os_platform": "darwin",
+    "os_ip": "192.168.68.107",
+    "os_hostname": "LeganuxPC.local",
+    "os_arch": "arm64"
+  },
+  "container_id": false
 }
 ```
 
