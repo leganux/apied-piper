@@ -637,7 +637,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             }
 
 
-            this.app.post(this.api_base_uri + 'resetPassword', async function (req, res) {
+            this.app.post(this.api_base_uri + 'forgotPassword', async function (req, res) {
 
                 try {
 
@@ -817,7 +817,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             })
 
             this.app.get(this.api_base_uri + 'activate/:uid', async function (req, res) {
-
                 try {
                     let {x, z} = req.query
                     let findUser = await el.internalUser.findOne({active_code: x})
@@ -841,23 +840,18 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             '</center>')
                         return
                     }
-
                     findUser.active_date = moment()
                     findUser.active_code = uuidv4()
-
                     findUser = await findUser.save()
-
                     res.status(200).send('<center>' +
                         (options_.message_active_ok || '<h1>Activation success </h1>') +
                         '</center>')
-
                 } catch (e) {
                     console.error(e)
                     res.status(500).send('<center>' +
                         (options_.message_error_link || '<h1>Were sorry but has been occurred an error, please contact the admin</h1>') +
                         '</center>')
                 }
-
             })
 
             this.app.post(this.api_base_uri + 'register/:profile', async function (req, res) {

@@ -344,7 +344,7 @@ let optionsLogin = {
     },
     message_not_user_found: "This user was not found",//custom message user not found html
     message_expired_link: "This code has been expired",//custom message expirred link html
-    html_change_password: [htmlfiletemplate path],//custom  html template for reset pasword
+    html_change_password: <htmlfiletemplate path>,//custom  html template for reset pasword
 
 }
 
@@ -482,6 +482,30 @@ fetch("http://localhost:3000/apiv2/register/<ROLE_NAME>", requestOptions) // ROL
 
 ```
 
+Forgot Password
+
+```javascript
+
+var myHeaders = new Headers();
+myHeaders.append("Content-Type", "application/json");
+
+var raw = JSON.stringify({
+    "email": "dinesh@piedpipper.com"
+});
+
+var requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
+};
+
+fetch("http://localhost:3000/apiv2/forgotPassword", requestOptions) 
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
+```
+
 Login
 
 ```javascript
@@ -527,15 +551,12 @@ let rsp = {
         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTkyOTc1MzEsImRhdGEiOnsiX2lkIjoiNjJlNmQwOTQ5NjRiMTcwYzhhNDQyYTdhIiwiYWN0aXZlIjp0cnVlLCJ1c2VyIjoiSmFyZWQiLCJlbWFpbCI6IkphcmVkQHBpZWRwaXBlci5jb20iLCJwcm9maWxlIjoiQWRtaW4iLCJjcmVhdGVkQXQiOiIyMDIyLTA3LTMxVDE4OjU3OjI0Ljc5OFoiLCJ1cGRhdGVkQXQiOiIyMDIyLTA3LTMxVDE4OjU3OjI0Ljc5OFoiLCJfX3YiOjB9LCJpYXQiOjE2NTkyOTM5MzF9.AkQ1yplY-Xv3dBiL5bd-W_-hOZuxcaUXuEsQMMKy49I"
     }
 }
-
-
 ```
 
 Toke must to be saved locally to use in every next request to check if user has o no permission to access some route
 
 ```javascript
 myHeaders.append("Authorizathion", "Bearer <token here>");
-
 ```
 
 **Methods and params**
