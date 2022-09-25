@@ -636,7 +636,45 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 await user_.save()
             }
 
+            this.app.get(this.api_base_uri + 'activate/:uid', async function (req, res) {
+                try {
+                    let {x, z} = req.query
+                    let {uid} = req.params
+                    let findUser = await el.internalUser.findOne({active_code: x})
+                        .select({
+                            active_code: 1,
+                            active_date: 1,
+                        })
+                    if (!findUser || z !== String(findUser._id)) {
+                        res.status(404).send('<center>' +
+                            (options_.message_used_link || '<h1>This code has been used or is invalid </h1>') +
+                            '</center>')
+                        return
+                    }
 
+                    let a = moment(findUser.active_date)
+                    let b = moment()
+                    let diff = a.diff(b, 'minutes')
+                    if (Math.abs(diff) > 5) {
+                        res.status(404).send('<center>' +
+                            (options_.message_expired_link || '<h1>This code has been expired </h1>') +
+                            '</center>')
+                        return
+                    }
+                    findUser.active_date = moment()
+                    findUser.active_code = uuidv4()
+                    findUser.active = true
+                    findUser = await findUser.save()
+                    res.status(200).send('<center>' +
+                        (options_.message_active_ok || '<h1>Activation success </h1>') +
+                        '</center>')
+                } catch (e) {
+                    console.error(e)
+                    res.status(500).send('<center>' +
+                        (options_.message_error_link || '<h1>Were sorry but has been occurred an error, please contact the admin</h1>') +
+                        '</center>')
+                }
+            })
             this.app.post(this.api_base_uri + 'forgotPassword', async function (req, res) {
 
                 try {
@@ -673,7 +711,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
 
                     findUser = await findUser.save()
 
-                    let activation_link = req.protocol + req.get('host') + el.api_base_uri + 'new_password/' + uuidv4() + '?x=' + findUser.active_code + '&w=' + uuidv4() + Math.random() + '&type=public'
+                    let activation_link = req.protocol+'://' + req.get('host') + el.api_base_uri + 'new_password/' + uuidv4() + '?x=' + findUser.active_code + '&w=' + uuidv4() + Math.random() + '&type=public'
 
                     await el.sendMail({
                         from: options_?.sendResetPasswordMail?.from || 'password@apied-pipperjs.com',
@@ -816,43 +854,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
 
             })
 
-            this.app.get(this.api_base_uri + 'activate/:uid', async function (req, res) {
-                try {
-                    let {x, z} = req.query
-                    let findUser = await el.internalUser.findOne({active_code: x})
-                        .select({
-                            active_code: 1,
-                            active_date: 1,
-                        })
-                    if (!findUser || z !== String(findUser._id)) {
-                        res.status(404).send('<center>' +
-                            (options_.message_used_link || '<h1>This code has been used or is invalid </h1>') +
-                            '</center>')
-                        return
-                    }
-
-                    let a = moment(findUser.active_date)
-                    let b = moment()
-                    let diff = a.diff(b, 'minutes')
-                    if (Math.abs(diff) > 5) {
-                        res.status(404).send('<center>' +
-                            (options_.message_expired_link || '<h1>This code has been expired </h1>') +
-                            '</center>')
-                        return
-                    }
-                    findUser.active_date = moment()
-                    findUser.active_code = uuidv4()
-                    findUser = await findUser.save()
-                    res.status(200).send('<center>' +
-                        (options_.message_active_ok || '<h1>Activation success </h1>') +
-                        '</center>')
-                } catch (e) {
-                    console.error(e)
-                    res.status(500).send('<center>' +
-                        (options_.message_error_link || '<h1>Were sorry but has been occurred an error, please contact the admin</h1>') +
-                        '</center>')
-                }
-            })
 
             this.app.post(this.api_base_uri + 'register/:profile', async function (req, res) {
                 try {
@@ -892,8 +893,12 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         newUser = await options_.fAfterRegister(newUser)
                     }
 
+                    console.log('A')
                     if (options_?.sendConfirmMail) {
-                        let activation_link = req.protocol + req.get('host') + el.api_base_uri + 'activate/' + uuidv4() + '?x=' + newUser.active_code + '&w=' + uuidv4() + Math.random() + '&z=' + newUser._id + '&type=public'
+                        console.log('B')
+                        let activation_link = req.protocol + '://' + req.get('host') + el.api_base_uri + 'activate/' + uuidv4() + '?x=' + newUser.active_code + '&w=' + uuidv4() + Math.random() + '&z=' + newUser._id + '&type=public'
+                        console.log('activation_link', activation_link)
+
                         await el.sendMail({
                             from: options_?.sendConfirmMail?.from || 'activate@apied-pipperjs.com',
                             to: email__,
@@ -902,6 +907,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
 
                     }
+
 
                     res.status(200).json({
                         success: true,
@@ -1119,7 +1125,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             })
         }
         this.start = async function () {
-            this.app.get('*', async function (_req, res) {
+            /*this.app.get('*', async function (_req, res) {
                 res.status(404).json({
                     success: false,
                     code: 404,
@@ -1127,7 +1133,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     message: 'APIed Piper has been successful started',
                     container_id: await getId()
                 })
-            })
+            })*/
             if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
                 this.httpsServer.listen(ssl_config.port, () => {
                     console.log("https server start al port", ssl_config.port);
