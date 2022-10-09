@@ -210,7 +210,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     if (compareUri.endsWith('/')) {
                         compareUri = compareUri.slice(0, -1)
                     }
-                    console.log('lista ', arrOfValidUris, compareUri)
+
                     if (arrOfValidUris.includes(compareUri)) {
                         next()
                         return
@@ -234,7 +234,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             oArr.push(newer)
                         }
                     }
-                    console.log('lista 2 ', oArr, compareUri)
+
                     if (oArr.includes(compareUri)) {
                         next()
                         return
@@ -608,6 +608,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             }
             if (options_?.customFields && typeof options_.customFields == 'object') {
                 for (let [key, val] of Object.entries(options_.customFields)) {
+
                     definition_user_acl[key] = val
                 }
             }
@@ -618,7 +619,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             let userSchema = new Schema(definition_user_acl, {
                 timestamps: true
             });
+
             let User = this.mongoose.model(collection, userSchema, collection);
+
             el.internalUser = User
             let user_ = await User.findOne({
                 user: user,
@@ -711,7 +714,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
 
                     findUser = await findUser.save()
 
-                    let activation_link = req.protocol+'://' + req.get('host') + el.api_base_uri + 'new_password/' + uuidv4() + '?x=' + findUser.active_code + '&w=' + uuidv4() + Math.random() + '&type=public'
+                    let activation_link = req.protocol + '://' + req.get('host') + el.api_base_uri + 'new_password/' + uuidv4() + '?x=' + findUser.active_code + '&w=' + uuidv4() + Math.random() + '&type=public'
 
                     await el.sendMail({
                         from: options_?.sendResetPasswordMail?.from || 'password@apied-pipperjs.com',
@@ -736,7 +739,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 }
 
             })
-
             this.app.get(this.api_base_uri + 'new_password/:uid', async function (req, res) {
 
                 try {
@@ -745,7 +747,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         .select({
                             active_code: 1,
                             active_date: 1,
+                            token_code: 1,
+                            email: 1,
+                            pass: 1,
                         })
+
                     if (!findUser) {
                         res.status(404).send('<center>' +
                             (options_.message_not_user_found || '<h1>This user was not found</h1>') +
@@ -755,7 +761,18 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
 
                     let a = moment(findUser.active_date)
                     let b = moment()
+
                     let diff = a.diff(b, 'minutes')
+
+                    let file = 'mailReset.html'
+
+                    if (options_.html_change_password) {
+                        file = path.join(options_.html_change_password)
+                    } else {
+                        file = path.join(__dirname, file)
+                    }
+                    let data = fs.readFileSync(file, 'utf8');
+
                     if (Math.abs(diff) > 5) {
                         res.status(404).send('<center>' +
                             (options_.message_expired_link || '<h1>This code has been expired </h1>') +
@@ -764,20 +781,17 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     }
 
                     findUser.active_date = moment()
-                    findUser.active_code = uuidv4()
+                    let cod = uuidv4()
+                    findUser.active_code = cod
 
                     findUser = await findUser.save()
+                    findUser = await el.internalUser.findById(findUser._id)
 
-                    let file = 'mailReset.html'
 
-                    if (options_.html_change_password) {
-                        file = path.join(options_.html_change_password)
-                    } else {
-                        file = path.join(__dirname, file)
+                    data = data.replace('___MAIL___', findUser.email)
+                    data = data.replace('___CODE___', cod)
 
-                    }
-                    let data = fs.readFileSync(file, 'utf8');
-                    res.status(200).send(data.replace('___MAIL___', findUser.email).replace('___CODE___', findUser.active_code))
+                    res.status(200).send(data)
 
                 } catch (e) {
                     console.error(e)
@@ -787,7 +801,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 }
 
             })
-
             this.app.post(this.api_base_uri + 'new_password/:uid', async function (req, res) {
 
                 try {
@@ -806,7 +819,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         .select({
                             active_code: 1,
                             active_date: 1,
+                            token_code: 1,
+                            email: 1,
+                            pass: 1,
                         })
+                    console.log(findUser)
                     if (!findUser) {
                         res.status(200).json({
                             success: false,
@@ -853,14 +870,13 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 }
 
             })
-
-
             this.app.post(this.api_base_uri + 'register/:profile', async function (req, res) {
                 try {
                     let user__ = req.body.user
                     let pass__ = req.body.pass
                     let email__ = req.body.email
                     let {profile} = req.params
+                    let body = req.body
                     let newUser = await User.findOne({
                         $or: [
                             {user: user__},
@@ -887,17 +903,28 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             active_code: uuidv4(),
                             active_date: moment()
                         })
-                        newUser = await newUser.save()
+
                     }
+
+                    delete body.pass
+                    delete body.email
+                    delete body.user
+
+                    for (let [key, val] of Object.entries(body)) {
+                        newUser[key] = val
+                    }
+
+                    newUser = await newUser.save()
+
                     if (options_?.fAfterRegister && typeof options_.fAfterRegister == 'function') {
                         newUser = await options_.fAfterRegister(newUser)
                     }
 
-                    console.log('A')
+
                     if (options_?.sendConfirmMail) {
-                        console.log('B')
+
                         let activation_link = req.protocol + '://' + req.get('host') + el.api_base_uri + 'activate/' + uuidv4() + '?x=' + newUser.active_code + '&w=' + uuidv4() + Math.random() + '&z=' + newUser._id + '&type=public'
-                        console.log('activation_link', activation_link)
+
 
                         await el.sendMail({
                             from: options_?.sendConfirmMail?.from || 'activate@apied-pipperjs.com',
@@ -927,12 +954,25 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     })
                 }
             })
-
             this.app.post(this.api_base_uri + 'login', async function (req, res) {
                 try {
                     let user__ = req.body.user
                     let pass__ = req.body.pass
-                    let newUser = await User.findOne({user: user__, active: true}).lean()
+                    let newUser = await el.internalUser.findOne({
+                        $or: [
+                            {
+                                user: user__
+                            },
+                            {
+                                email: user__
+
+                            }],
+                        active: true
+                    }).select({
+                        active_code: 1,
+                        pass: 1,
+                    })
+
                     if (!newUser) {
                         res.status(403).json({
                             success: false,
@@ -955,7 +995,8 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     newUser.token_code = uuidv4();
                     newUser = await newUser.save()
 
-                    delete newUser.pass;
+                    newUser = await el.internalUser.findById(newUser._id).lean()
+                    newUser = JSON.parse(JSON.stringify(newUser))
 
 
                     let token = await jwt.sign({
