@@ -20,6 +20,7 @@ const {v4: uuidv4} = require('uuid');
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
+    v3.1.3
 Welcome to 
                                                                                                                          
        db         88888888ba   88                       88            88888888ba   88                                       
@@ -75,6 +76,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
         this.db = this.mongoose.connection;
         this.api_base_uri = '/api/';
         this.internalUser = {}
+        this.internalUserSchema = {}
         this.adminProfileName = "Admin"
         if (options.api_base_uri) {
             this.api_base_uri = options.api_base_uri
@@ -91,17 +93,28 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 next();
             });
         }
+        let ACL_ = false
         if (options.acl && typeof options.acl == 'object') {
             this.acl = options.acl
+            ACL_ = this.acl
+            console.log('ACL', this.acl)
         }
         if (options.acl_custom && typeof options.acl_custom == 'object') {
             this.acl_custom = options.acl_custom
         }
+        let el__ = this
         this.middleware = [async function (req, res, next) {
+
             try {
-                if (this.acl) {
+                if (ACL_) {
+
                     let token = req?.headers?.authorization
-                    if (!token) {
+                    if (token?.includes('Bearer')) {
+                        token = token.replace('Bearer', '')
+                    }
+                    token = token?.trim()
+
+                    if (!token || token == '' || token == 'NONE') {
                         res.status(403).json({
                             success: false,
                             code: 403,
@@ -111,11 +124,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-                    if (token.includes('Bearer')) {
-                        token = token.replace('Bearer', '')
-                    }
-                    token = token.trim()
-                    let decoded = jwt.verify(token, el.JWTPASSWORD);
+                    console.log('token', token)
+
+                    let decoded = jwt.verify(token, el__.JWTPASSWORD);
                     if (!decoded) {
                         res.status(403).json({
                             success: false,
@@ -126,7 +137,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-                    let finduser = await el.internalUser.findOne({
+                    let finduser = await el__.internalUser.findOne({
                         user: decoded.data.user,
                         profile: decoded.data.profile,
                         active: true
@@ -141,7 +152,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-                    if (!this.acl || !this.acl[finduser.profile]) {
+                    if (!ACL_ || !ACL_[finduser.profile]) {
                         res.status(403).json({
                             success: false,
                             code: 403,
@@ -155,63 +166,102 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     let uri = req.originalUrl
                     let compareUri = metod.toUpperCase() + '$' + uri
                     let arrOfValidUris = []
-                    for (let [key, value] of Object.entries(this.acl[finduser.profile])) {
-                        if (value == '*') {
-                            arrOfValidUris.push('POST$' + this.api_base_uri + key + '')
-                            arrOfValidUris.push('POST$' + this.api_base_uri + key + '/many')
-                            arrOfValidUris.push('GET$' + this.api_base_uri + key + '')
-                            arrOfValidUris.push('GET$' + this.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('GET$' + this.api_base_uri + key + '/one')
-                            arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_update_or_create')
-                            arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_where_and_update')
-                            arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('DELETE$' + this.api_base_uri + key + '/:id')
-                            arrOfValidUris.push('POST$' + this.api_base_uri + key + '/datatable')
-                        } else {
+                    for (let [key, value] of Object.entries(ACL_[finduser.profile])) {
+                        if (key == '*') {
                             if (value.createOne) {
-                                arrOfValidUris.push('POST$' + this.api_base_uri + key + '')
+                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '')
                             }
                             if (value.createMany) {
-                                arrOfValidUris.push('POST$' + this.api_base_uri + key + '/many')
+                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/many')
                             }
                             if (value.getMany) {
-                                arrOfValidUris.push('GET$' + this.api_base_uri + key + '')
+                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '')
                             }
                             if (value.getOneById) {
-                                arrOfValidUris.push('GET$' + this.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '/:id')
                             }
                             if (value.getOneWhere) {
-                                arrOfValidUris.push('GET$' + this.api_base_uri + key + '/one')
+                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '/one')
                             }
                             if (value.findUpdateOrCreate) {
-                                arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_update_or_create')
+                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/find_update_or_create')
                             }
                             if (value.findUpdate) {
-                                arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/find_where_and_update')
+                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/find_where_and_update')
 
                             }
                             if (value.updateById) {
-                                arrOfValidUris.push('PUT$' + this.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/:id')
                             }
                             if (value.findIdAndDelete) {
-                                arrOfValidUris.push('DELETE$' + this.api_base_uri + key + '/:id')
+                                arrOfValidUris.push('*DELETE$' + el__.api_base_uri + key + '/:id')
                             }
                             if (value.datatable) {
-                                arrOfValidUris.push('POST$' + this.api_base_uri + key + '/datatable')
+                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/datatable')
+                            }
+
+                        } else if (value == '*') {
+                            arrOfValidUris.push('POST$' + el__.api_base_uri + key + '')
+                            arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/many')
+                            arrOfValidUris.push('GET$' + el__.api_base_uri + key + '')
+                            arrOfValidUris.push('GET$' + el__.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('GET$' + el__.api_base_uri + key + '/one')
+                            arrOfValidUris.push('PUT$' + el__.api_base_uri + key + '/find_update_or_create')
+                            arrOfValidUris.push('PUT$' + el__.api_base_uri + key + '/find_where_and_update')
+                            arrOfValidUris.push('PUT$' + el__.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('DELETE$' + el__.api_base_uri + key + '/:id')
+                            arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/datatable')
+                        } else {
+                            if (value.createOne) {
+                                arrOfValidUris.push('POST$' + el__.api_base_uri + key + '')
+                            }
+                            if (value.createMany) {
+                                arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/many')
+                            }
+                            if (value.getMany) {
+                                arrOfValidUris.push('GET$' + el__.api_base_uri + key + '')
+                            }
+                            if (value.getOneById) {
+                                arrOfValidUris.push('GET$' + el__.api_base_uri + key + '/:id')
+                            }
+                            if (value.getOneWhere) {
+                                arrOfValidUris.push('GET$' + el__.api_base_uri + key + '/one')
+                            }
+                            if (value.findUpdateOrCreate) {
+                                arrOfValidUris.push('PUT$' + el__.api_base_uri + key + '/find_update_or_create')
+                            }
+                            if (value.findUpdate) {
+                                arrOfValidUris.push('PUT$' + el__.api_base_uri + key + '/find_where_and_update')
+
+                            }
+                            if (value.updateById) {
+                                arrOfValidUris.push('PUT$' + el__.api_base_uri + key + '/:id')
+                            }
+                            if (value.findIdAndDelete) {
+                                arrOfValidUris.push('DELETE$' + el__.api_base_uri + key + '/:id')
+                            }
+                            if (value.datatable) {
+                                arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/datatable')
                             }
                         }
                     }
                     //crea el mapa de verificación para las custom URL
-                    for (let item of this.acl_custom[finduser.profile]) {
-                        if (item.path && item.method) {
-                            arrOfValidUris.push(item.method.toUpperCase() + '$' + this.api_base_uri + item.path)
+                    if (el__.acl_custom && Array.isArray(el__.acl_custom)) {
+                        for (let item of el__.acl_custom[finduser.profile]) {
+                            if (item.path && item.method) {
+                                arrOfValidUris.push(item.method.toUpperCase() + '$' + el__.api_base_uri + item.path)
+                            }
                         }
+                    }
+
+                    if (compareUri.includes('?')) {
+                        compareUri = compareUri.split('?')[0]
                     }
                     if (compareUri.endsWith('/')) {
                         compareUri = compareUri.slice(0, -1)
                     }
-
-                    if (arrOfValidUris.includes(compareUri)) {
+                    console.log('ACCESS   ', arrOfValidUris, compareUri)
+                    if (arrOfValidUris.includes(compareUri) || arrOfValidUris.includes('*' + compareUri)) {
                         next()
                         return
                     }
@@ -235,7 +285,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         }
                     }
 
-                    if (oArr.includes(compareUri)) {
+                    if (oArr.includes(compareUri) || oArr.includes('*' + compareUri)) {
                         next()
                         return
                     }
@@ -263,6 +313,8 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 return
             }
         }]
+
+
         if (options.middleware && typeof options.middleware == 'function') {
             this.middleware.push(options.middleware)
         }
@@ -391,6 +443,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         }
                     }
                 }
+
                 el.schemas_object[key1] = new Schema(el.schemas_object[key1], {timestamps: el.db_timestamps})
                 el.schemas_object[key1].plugin(dataTables)
                 el.models_object[key1] = el.mongoose.model(key1, el.schemas_object[key1]);
@@ -400,6 +453,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     delete el.populations_object[key1]
                 }
             }
+
             for (var [key, value] of Object.entries(jsonDefinition)) {
                 el.allowedRoutes[key] = []
                 if (value && value.operation && (value.operation.all || value.operation.createOne)) {
@@ -443,6 +497,51 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     el.allowedRoutes[key].push('POST:/datatable-datatable')
                 }
             }
+
+// ACL ROUTES
+            let key_ACL = '_ACL_'
+            el.allowedRoutes[key_ACL] = []
+
+            el.app.post(el.api_base_uri + key_ACL, el.middleware, el.ms.createOne(el.internalUser, {}, {}))
+            el.allowedRoutes[key_ACL].push('POST:/-createOne')
+
+
+            el.app.post(el.api_base_uri + key_ACL + '/many', el.middleware, el.ms.createMany(el.internalUser, {}, {}))
+            el.allowedRoutes[key_ACL].push('POST:/many-createMany')
+
+
+            el.app.get(el.api_base_uri + key_ACL, el.middleware, el.ms.getMany(el.internalUser, {}))
+            el.allowedRoutes[key_ACL].push('GET:/-getMany')
+
+
+            el.app.get(el.api_base_uri + key_ACL + '/:id', el.middleware, el.ms.getOneById(el.internalUser, {}))
+            el.allowedRoutes[key_ACL].push('GET:/<id>-getOneById')
+
+
+            el.app.get(el.api_base_uri + key_ACL + '/one', el.middleware, el.ms.getOneWhere(el.internalUser, {},))
+            el.allowedRoutes[key_ACL].push('GET:/one-getOneWhere')
+
+
+            el.app.put(el.api_base_uri + key_ACL + '/find_update_or_create', el.middleware, el.ms.findUpdateOrCreate(el.internalUser, {}, {}))
+            el.allowedRoutes[key_ACL].push('PUT:/find_update_or_create-findUpdateOrCreate')
+
+
+            el.app.put(el.api_base_uri + key_ACL + '/find_where_and_update', el.middleware, el.ms.findUpdate(el.internalUser, {}, {}))
+            el.allowedRoutes[key_ACL].push('PUT:/find_where_and_update-findUpdate')
+
+
+            el.app.put(el.api_base_uri + key_ACL + '/:id', el.middleware, el.ms.updateById(el.internalUser, {}, {}))
+            el.allowedRoutes[key_ACL].push('PUT:/<id> - updateById')
+
+
+            el.app.delete(el.api_base_uri + key_ACL + '/:id', el.middleware, el.ms.findIdAndDelete(el.internalUser, {}))
+            el.allowedRoutes[key_ACL].push('DELETE:/<id>-findIdAndDelete')
+
+
+            el.app.post(el.api_base_uri + key_ACL + '/datatable', el.middleware, el.ms.datatable(el.internalUser, {}, 'name,mail'))
+            el.allowedRoutes[key_ACL].push('POST:/datatable-datatable')
+
+
             let registered_routes = el.allowedRoutes
             el.app.get(el.api_base_uri, async function (_req, res) {
                 res.status(200).json({
@@ -608,7 +707,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             }
             if (options_?.customFields && typeof options_.customFields == 'object') {
                 for (let [key, val] of Object.entries(options_.customFields)) {
-
                     definition_user_acl[key] = val
                 }
             }
@@ -620,9 +718,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                 timestamps: true
             });
 
+            userSchema.plugin(dataTables)
             let User = this.mongoose.model(collection, userSchema, collection);
 
             el.internalUser = User
+            el.internalUserSchema = userSchema
             let user_ = await User.findOne({
                 user: user,
                 profile: el.adminProfileName
@@ -1022,7 +1122,6 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     })
                 }
             })
-
             this.app.post(this.api_base_uri + 'verify', async function (req, res) {
                 try {
                     let token = req.body.token
