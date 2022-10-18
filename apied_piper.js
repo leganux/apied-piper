@@ -20,7 +20,7 @@ const {v4: uuidv4} = require('uuid');
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
-    v3.1.3
+    v3.1.4
 Welcome to 
                                                                                                                          
        db         88888888ba   88                       88            88888888ba   88                                       
@@ -106,13 +106,97 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
         this.middleware = [async function (req, res, next) {
 
             try {
-                if (ACL_) {
+                let metod = req.method
+                let uri = req.originalUrl
+                let compareUri = metod.toUpperCase() + '$' + uri
+                let arrOfValidUris = []
 
+                if (ACL_) {
+                    console.log('ACL_', ACL_)
+                    if (ACL_['*'] || ACL_['PUBLIC']) {
+                        let public = ACL_['*'] || ACL_['PUBLIC']
+                        console.log('public', public)
+                        for (let [key, value] of Object.entries(public)) {
+
+                            if (value.createOne || value == '*') {
+                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '')
+                            }
+                            if (value.createMany || value == '*') {
+                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/many')
+                            }
+                            if (value.getMany || value == '*') {
+                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '')
+                            }
+                            if (value.getOneById || value == '*') {
+                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '/:id')
+                            }
+                            if (value.getOneWhere || value == '*') {
+                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '/one')
+                            }
+                            if (value.findUpdateOrCreate || value == '*') {
+                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/find_update_or_create')
+                            }
+                            if (value.findUpdate || value == '*') {
+                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/find_where_and_update')
+
+                            }
+                            if (value.updateById || value == '*') {
+                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/:id')
+                            }
+                            if (value.findIdAndDelete || value == '*') {
+                                arrOfValidUris.push('*DELETE$' + el__.api_base_uri + key + '/:id')
+                            }
+                            if (value.datatable || value == '*') {
+                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/datatable')
+                            }
+                        }
+
+                        if (compareUri.includes('?')) {
+                            compareUri = compareUri.split('?')[0]
+                        }
+                        if (compareUri.endsWith('/')) {
+                            compareUri = compareUri.slice(0, -1)
+                        }
+                        console.log('ACCESS   ', arrOfValidUris, compareUri)
+                        if (arrOfValidUris.includes(compareUri) || arrOfValidUris.includes('*' + compareUri)) {
+                            next()
+                            return
+                        }
+
+                        let oArr = []
+                        for (let item of arrOfValidUris) {
+                            if (item.includes(':')) {
+                                let cUri = compareUri.split('/')
+                                let citem = item.split('/')
+                                let newer = []
+
+                                for (let i = 0; i < citem.length; i++) {
+                                    let ytem = citem[i]
+                                    if (ytem.includes(':')) {
+                                        newer.push(cUri[i])
+                                    } else {
+                                        newer.push(ytem)
+                                    }
+                                }
+                                newer = newer.join('/')
+                                oArr.push(newer)
+                            }
+                        }
+                        console.log(oArr)
+                        if (oArr.includes(compareUri) || oArr.includes('*' + compareUri)) {
+                            next()
+                            return
+                        }
+
+                    }
+
+                    /*si hay session*/
+                    arrOfValidUris = []
                     let token = req?.headers?.authorization
                     if (token?.includes('Bearer')) {
                         token = token.replace('Bearer', '')
                     }
-                    token = token?.trim()
+                    token = token?.trim() || ''
 
                     if (!token || token == '' || token == 'NONE') {
                         res.status(403).json({
@@ -162,45 +246,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                         })
                         return;
                     }
-                    let metod = req.method
-                    let uri = req.originalUrl
-                    let compareUri = metod.toUpperCase() + '$' + uri
-                    let arrOfValidUris = []
+
                     for (let [key, value] of Object.entries(ACL_[finduser.profile])) {
-                        if (key == '*') {
-                            if (value.createOne) {
-                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '')
-                            }
-                            if (value.createMany) {
-                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/many')
-                            }
-                            if (value.getMany) {
-                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '')
-                            }
-                            if (value.getOneById) {
-                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '/:id')
-                            }
-                            if (value.getOneWhere) {
-                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '/one')
-                            }
-                            if (value.findUpdateOrCreate) {
-                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/find_update_or_create')
-                            }
-                            if (value.findUpdate) {
-                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/find_where_and_update')
-
-                            }
-                            if (value.updateById) {
-                                arrOfValidUris.push('*PUT$' + el__.api_base_uri + key + '/:id')
-                            }
-                            if (value.findIdAndDelete) {
-                                arrOfValidUris.push('*DELETE$' + el__.api_base_uri + key + '/:id')
-                            }
-                            if (value.datatable) {
-                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/datatable')
-                            }
-
-                        } else if (value == '*') {
+                        if (value == '*') {
                             arrOfValidUris.push('POST$' + el__.api_base_uri + key + '')
                             arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/many')
                             arrOfValidUris.push('GET$' + el__.api_base_uri + key + '')
@@ -468,10 +516,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     el.app.get(el.api_base_uri + key, el.middleware, el.ms.getMany(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
                     el.allowedRoutes[key].push('GET:/-getMany')
                 }
-                if (value && value.operation && (value.operation.all || value.operation.getOneById)) {
-                    el.app.get(el.api_base_uri + key + '/:id', el.middleware, el.ms.getOneById(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
-                    el.allowedRoutes[key].push('GET:/<id>-getOneById')
-                }
+
                 if (value && value.operation && (value.operation.all || value.operation.getOneWhere)) {
                     el.app.get(el.api_base_uri + key + '/one', el.middleware, el.ms.getOneWhere(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
                     el.allowedRoutes[key].push('GET:/one-getOneWhere')
@@ -484,6 +529,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     el.app.put(el.api_base_uri + key + '/find_where_and_update', el.middleware, el.ms.findUpdate(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
                     el.allowedRoutes[key].push('PUT:/find_where_and_update-findUpdate')
                 }
+
+                if (value && value.operation && (value.operation.all || value.operation.datatable)) {
+                    el.app.post(el.api_base_uri + key + '/datatable', el.middleware, el.ms.datatable(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
+                    el.allowedRoutes[key].push('POST:/datatable-datatable')
+                }
                 if (value && value.operation && (value.operation.all || value.operation.updateById)) {
                     el.app.put(el.api_base_uri + key + '/:id', el.middleware, el.ms.updateById(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
                     el.allowedRoutes[key].push('PUT:/<id> - updateById')
@@ -492,9 +542,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     el.app.delete(el.api_base_uri + key + '/:id', el.middleware, el.ms.findIdAndDelete(el.models_object[key], {}))
                     el.allowedRoutes[key].push('DELETE:/<id>-findIdAndDelete')
                 }
-                if (value && value.operation && (value.operation.all || value.operation.datatable)) {
-                    el.app.post(el.api_base_uri + key + '/datatable', el.middleware, el.ms.datatable(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
-                    el.allowedRoutes[key].push('POST:/datatable-datatable')
+                if (value && value.operation && (value.operation.all || value.operation.getOneById)) {
+                    el.app.get(el.api_base_uri + key + '/:id', el.middleware, el.ms.getOneById(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
+                    el.allowedRoutes[key].push('GET:/<id>-getOneById')
                 }
             }
 
