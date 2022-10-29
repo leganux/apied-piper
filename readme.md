@@ -287,6 +287,7 @@ let acl = {
             updateById: true,
             findIdAndDelete: true,
             datatable: true,
+            datatable_aggregate: true,
         },
         classmate: {
             createOne: true,

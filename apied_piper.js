@@ -20,7 +20,7 @@ const {v4: uuidv4} = require('uuid');
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
-    v3.1.4
+    v3.1.6
 Welcome to 
                                                                                                                          
        db         88888888ba   88                       88            88888888ba   88                                       
@@ -149,6 +149,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             if (value.datatable || value == '*') {
                                 arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/datatable')
                             }
+                            if (value.datatable_aggregate || value == '*') {
+                                arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/dt_agr')
+                            }
                         }
 
                         if (compareUri.includes('?')) {
@@ -259,6 +262,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             arrOfValidUris.push('PUT$' + el__.api_base_uri + key + '/:id')
                             arrOfValidUris.push('DELETE$' + el__.api_base_uri + key + '/:id')
                             arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/datatable')
+                            arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/dt_agr')
                         } else {
                             if (value.createOne) {
                                 arrOfValidUris.push('POST$' + el__.api_base_uri + key + '')
@@ -290,6 +294,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             }
                             if (value.datatable) {
                                 arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/datatable')
+                            }
+                            if (value.datatable_aggregate) {
+                                arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/dt_agr')
                             }
                         }
                     }
@@ -534,6 +541,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     el.app.post(el.api_base_uri + key + '/datatable', el.middleware, el.ms.datatable(el.models_object[key], (el.populations_object[key] ? el.populations_object[key] : false), (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
                     el.allowedRoutes[key].push('POST:/datatable-datatable')
                 }
+                if (value && value.operation && (value.operation.all || value.operation.datatable_aggregate)) {
+                    el.app.post(el.api_base_uri + key + '/dt_agr', el.middleware, el.ms.datatable_aggregate(el.models_object[key],[], (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
+                    el.allowedRoutes[key].push('POST:/dt_agr')
+                }
                 if (value && value.operation && (value.operation.all || value.operation.updateById)) {
                     el.app.put(el.api_base_uri + key + '/:id', el.middleware, el.ms.updateById(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
                     el.allowedRoutes[key].push('PUT:/<id> - updateById')
@@ -590,6 +601,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
 
             el.app.post(el.api_base_uri + key_ACL + '/datatable', el.middleware, el.ms.datatable(el.internalUser, {}, 'name,mail'))
             el.allowedRoutes[key_ACL].push('POST:/datatable-datatable')
+
+            el.app.post(el.api_base_uri + key_ACL + '/dt_agr', el.middleware, el.ms.datatable_aggregate(el.internalUser, [], 'name,mail'))
+            el.allowedRoutes[key_ACL].push('POST:/dt_agr')
 
 
             let registered_routes = el.allowedRoutes
