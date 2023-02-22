@@ -442,15 +442,19 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     switch (value_.type.toLowerCase()) {
                         case 'string':
                             cadValidation = cadValidation + 'string'
+                            type= String
                             break;
                         case 'number':
                             cadValidation = cadValidation + 'number'
+                             type= Number
                             break;
                         case 'boolean':
                             cadValidation = cadValidation + 'boolean'
+                             type= Boolean
                             break;
                         case 'date':
                             cadValidation = cadValidation + 'date'
+                             type= Date
                             break;
                         case 'oid':
                             if (value_.rel == '_ACL_') {
@@ -458,6 +462,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             } else {
                                 this.populations_object[key1][key_] = this.models_object[value_.rel]
                             }
+                             type= Schema.Types.ObjectId
                             break;
                         case 'array_oid':
                             cadValidation = cadValidation + 'array'
@@ -466,6 +471,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             } else {
                                 this.populations_object[key1][key_] = this.models_object[value_.rel]
                             }
+                            type= Schema.Types.ObjectId
                             break;
                         default:
                             break;
