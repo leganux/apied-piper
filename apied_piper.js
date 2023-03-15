@@ -152,6 +152,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             if (value.datatable_aggregate || value == '*') {
                                 arrOfValidUris.push('*POST$' + el__.api_base_uri + key + '/dt_agr')
                             }
+                            if (value.aggregate || value == '*') {
+                                arrOfValidUris.push('*GET$' + el__.api_base_uri + key + '/aggregate')
+                            }
                         }
 
                         if (compareUri.includes('?')) {
@@ -263,6 +266,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             arrOfValidUris.push('DELETE$' + el__.api_base_uri + key + '/:id')
                             arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/datatable')
                             arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/dt_agr')
+                            arrOfValidUris.push('GET$' + el__.api_base_uri + key + '/aggregate')
                         } else {
                             if (value.createOne) {
                                 arrOfValidUris.push('POST$' + el__.api_base_uri + key + '')
@@ -297,6 +301,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             }
                             if (value.datatable_aggregate) {
                                 arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/dt_agr')
+                            }
+                            if (value.aggregate) {
+                                arrOfValidUris.push('POST$' + el__.api_base_uri + key + '/aggregate')
                             }
                         }
                     }
@@ -442,7 +449,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     switch (value_.type.toLowerCase()) {
                         case 'string':
                             cadValidation = cadValidation + 'string'
-                            type=String
+                            type = String
                             break;
                         case 'number':
                             cadValidation = cadValidation + 'number'
@@ -462,7 +469,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             } else {
                                 this.populations_object[key1][key_] = this.models_object[value_.rel]
                             }
-                           type: Schema.Types.ObjectId
+                            type: Schema.Types.ObjectId
                             break;
                         case 'array_oid':
 
@@ -549,8 +556,12 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     el.allowedRoutes[key].push('POST:/datatable-datatable')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.datatable_aggregate)) {
-                    el.app.post(el.api_base_uri + key + '/dt_agr', el.middleware, el.ms.datatable_aggregate(el.models_object[key],[], (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
+                    el.app.post(el.api_base_uri + key + '/dt_agr', el.middleware, el.ms.datatable_aggregate(el.models_object[key], [], (value.datatable_search_fields ? value.datatable_search_fields : undefined)))
                     el.allowedRoutes[key].push('POST:/dt_agr')
+                }
+                if (value && value.operation && (value.operation.all || value.operation.aggregate)) {
+                    el.app.post(el.api_base_uri + key + '/aggregate', el.middleware, el.ms.aggregate(el.models_object[key], []))
+                    el.allowedRoutes[key].push('POST:/aggregate')
                 }
                 if (value && value.operation && (value.operation.all || value.operation.updateById)) {
                     el.app.put(el.api_base_uri + key + '/:id', el.middleware, el.ms.updateById(el.models_object[key], el.validations_object[key], (el.populations_object[key] ? el.populations_object[key] : false), {}))
@@ -611,6 +622,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
 
             el.app.post(el.api_base_uri + key_ACL + '/dt_agr', el.middleware, el.ms.datatable_aggregate(el.internalUser, [], 'name,mail'))
             el.allowedRoutes[key_ACL].push('POST:/dt_agr')
+
+            el.app.get(el.api_base_uri + key_ACL + '/aggregate', el.middleware, el.ms.aggregate(el.internalUser, [],))
+            el.allowedRoutes[key_ACL].push('GET:/aggregate')
 
 
             let registered_routes = el.allowedRoutes
