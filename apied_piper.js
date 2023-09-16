@@ -20,7 +20,7 @@ const {v4: uuidv4} = require('uuid');
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
-    v3.2.0
+    v3.2.1
 Welcome to 
                                                                                                                          
        db         88888888ba   88                       88            88888888ba   88                                       
@@ -617,10 +617,10 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             el.allowedRoutes[key_ACL].push('DELETE:/<id>-findIdAndDelete')
 
 
-            el.app.post(el.api_base_uri + key_ACL + '/datatable', el.middleware, el.ms.datatable(el.internalUser, {}, 'name,mail'))
+            el.app.post(el.api_base_uri + key_ACL + '/datatable', el.middleware, el.ms.datatable(el.internalUser, {}, 'name,email'))
             el.allowedRoutes[key_ACL].push('POST:/datatable-datatable')
 
-            el.app.post(el.api_base_uri + key_ACL + '/dt_agr', el.middleware, el.ms.datatable_aggregate(el.internalUser, [], 'name,mail'))
+            el.app.post(el.api_base_uri + key_ACL + '/dt_agr', el.middleware, el.ms.datatable_aggregate(el.internalUser, [], 'name,email'))
             el.allowedRoutes[key_ACL].push('POST:/dt_agr')
 
             el.app.get(el.api_base_uri + key_ACL + '/aggregate', el.middleware, el.ms.aggregate(el.internalUser, [],))
@@ -1310,6 +1310,21 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             count: await value.count()
                         })
                     }
+
+                    let drive_info,
+                        drive_free,
+                        drive_used = {}
+                    try {
+                        drive_info = await drive.info()
+                        drive_free = await drive.free()
+                        drive_used = await drive.used()
+
+                    } catch
+                        (e) {
+                        console.info('disco no localizado')
+                    }
+
+
                     res.status(200).json({
                         success: true,
                         code: 200,
@@ -1322,12 +1337,11 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                             cpu_free: await cpu.free(),
                             cpu_count: await cpu.count(),
                             osCmd_whoami: await osCmd.whoami(),
-                            drive_info: await drive.info(),
-                            drive_free: await drive.free(),
-                            drive_used: await drive.used(),
+
                             mem_used: await mem.used(),
                             mem_free: await mem.free(),
 
+                            drive_free, drive_used, drive_info,
                             netstat_inout: await netstat.inOut(),
                             os_info: await os.oos(),
                             os_uptime: await os.uptime(),
@@ -1350,7 +1364,9 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
             })
         }
         this.start = async function () {
-            /*this.app.get('*', async function (_req, res) {
+
+            let el = this
+            this.app.get('*', async function (_req, res) {
                 res.status(404).json({
                     success: false,
                     code: 404,
@@ -1358,14 +1374,15 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
                     message: 'APIed Piper has been successful started',
                     container_id: await getId()
                 })
-            })*/
+            })
+
             if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
                 this.httpsServer.listen(ssl_config.port, () => {
                     console.log("https server start al port", ssl_config.port);
                 });
             }
-            this.httpServer.listen(port ? port : 3000, () => {
-                console.log("http server start al port", port ? port : 3000);
+            this.httpServer.listen(el.port ? el.port : 3000, () => {
+                console.log("http server start al port", el.port ? el.port : 3000);
             });
             this.db.once("open", function () {
                 console.log("MongoDB database connection established successfully", mongoDBUri);
