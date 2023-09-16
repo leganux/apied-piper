@@ -20,7 +20,7 @@ const {v4: uuidv4} = require('uuid');
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
-    v3.2.1
+    v3.2.4
 Welcome to 
                                                                                                                          
        db         88888888ba   88                       88            88888888ba   88                                       
@@ -55,6 +55,7 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
         this.credentials = false
         this.allowedRoutes = {}
         this.acl = false
+        this.port = port
         this.acl_custom = false
         this.schemas_object = {}
         this.validations_object = {}
