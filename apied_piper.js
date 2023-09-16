@@ -20,7 +20,7 @@ const {v4: uuidv4} = require('uuid');
 let apied_pipper = function (jsonDefinition, mongoDBUri, port = 3000, options = {}, ssl_config = {}) {
 
     console.log(`
-    v3.2.4
+    v3.2.5
 Welcome to 
                                                                                                                          
        db         88888888ba   88                       88            88888888ba   88                                       
@@ -1367,15 +1367,15 @@ d8'          \`8b  88           88   \`"Ybbd8"'   \`"8bbdP"Y8            88     
         this.start = async function () {
 
             let el = this
-            this.app.get('*', async function (_req, res) {
-                res.status(404).json({
-                    success: false,
-                    code: 404,
-                    error: 'Resource not found',
-                    message: 'APIed Piper has been successful started',
-                    container_id: await getId()
-                })
-            })
+            /* this.app.get('*', async function (_req, res) {
+                 res.status(404).json({
+                     success: false,
+                     code: 404,
+                     error: 'Resource not found',
+                     message: 'APIed Piper has been successful started',
+                     container_id: await getId()
+                 })
+             })*/
 
             if (ssl_config && ssl_config.private && ssl_config.cert && ssl_config.port) {
                 this.httpsServer.listen(ssl_config.port, () => {

@@ -1,6 +1,6 @@
 {
   "name": "apied-piper",
-  "version": "3.2.4",
+  "version": "3.2.5",
   "description": "A minute microservice API Rest generator",
   "main": "index.js",
   "scripts": {
