@@ -12,4 +12,7 @@
     <orderEntry type="module" module-name="big-head" />
     <orderEntry type="module" module-name="apiatojs" />
   </component>
+  <component name="SonarLintModuleSettings">
+    <option name="uniqueId" value="b6c3bb6a-b580-474a-8edb-86b5068ad16d" />
+  </component>
 </module>

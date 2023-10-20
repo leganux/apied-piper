@@ -12,8 +12,6 @@ A
 index.js,a/7/a77b15c0d64cf6111e025645e562faf8ccabb9d7
 <
 package.json,7/0/7030d0b2f71b999ff89a343de08c414af32fc93a
-L
-template_server/package.json,c/2/c2dc2f2dee59b9ac6e310fa98bf5ff40d07bd73d
 >
 apied_piper.js,c/6/c6f63ddc6a9599a594c1583b09286ef5609a2e49
 9
